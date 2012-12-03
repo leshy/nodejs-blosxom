@@ -1,5 +1,5 @@
 (function() {
-  var async, comm, crypto, decorate, decorators, deleteFolder, deletePost, engine, env, express, fs, getPost, getPosts, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, path, settings, updatePost, watchDir, wraplog, _;
+  var async, comm, converter, createPost, crypto, decorate, decorators, deletePost, engine, env, express, fs, getPosts, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, pagedown, path, settings, updatePost, watchDir, wraplog, _;
   var __slice = Array.prototype.slice;
   path = require('path');
   fs = require('fs');
@@ -12,9 +12,12 @@
   engine = require('ejs-locals');
   logger = require('logger');
   comm = require('comm/serverside');
+  helpers = require('helpers');
   decorators = require('decorators');
   decorate = decorators.decorate;
   hound = require('hound');
+  pagedown = require('pagedown');
+  converter = pagedown.getSanitizingConverter();
   env = {};
   settings = {
     postsfolder: "posts"
@@ -35,7 +38,12 @@
     return env.db.open(callback);
   };
   initCollections = function(callback) {
-    return env.blog = env.db.collection('blog', callback);
+    env.blog = new comm.MongoCollectionNode({
+      db: env.db,
+      collection: 'blog'
+    });
+    env.post = env.blog.defineModel('post', {});
+    return callback();
   };
   initExpress = function(callback) {
     var app;
@@ -62,14 +70,6 @@
     env.log('http server listening', {}, 'info', 'init', 'http');
     return callback(void 0, true);
   };
-  initRoutes = function(callback) {
-    env.app.get('/', function(req, res) {
-      return res.render('index', {
-        title: 'hello there'
-      });
-    });
-    return callback();
-  };
   makeLogDecorator = function(name) {
     return function() {
       var args, callback, f;
@@ -89,7 +89,6 @@
   };
   watchDir = function(callback) {
     var watcher;
-    console.log(__dirname + '/' + settings.postsfolder);
     watcher = hound.watch(__dirname + '/' + settings.postsfolder);
     watcher.on("create", function(f, stat) {
       if (stat.isFile()) {
@@ -110,44 +109,83 @@
       return updatePost(f);
     });
     watcher.on("delete", function(f, stat) {
-      if (stat.isFile()) {
-        env.log('deleted file ' + f, {
-          file: f
-        }, 'info', 'fs', 'file', 'delete');
-        return deletePost(f);
-      } else {
-        return env.log('deleted dir ' + f, {
-          file: f
-        }, 'info', 'fs', 'dir', 'delete');
-      }
+      env.log('deleted file ' + f, {
+        file: f
+      }, 'info', 'fs', 'file', 'delete');
+      return deletePost(f);
     });
     return callback();
   };
-  deleteFolder = decorate(decorators.MakeDecorator_Throttle({
-    timeout: 200
-  }), function(file, id, callback) {
-    if (callback) {
-      return callback();
-    }
-  });
   deletePost = decorate(decorators.MakeDecorator_Throttle({
     timeout: 200
-  }), function(file, id, callback) {
-    if (callback) {
-      return callback();
-    }
+  }), function(file, callback) {
+    return env.blog.findModels({
+      file: file
+    }, {}, function(post) {
+      if (post) {
+        return post.remove();
+      } else {
+        return helpers.cbc(callback);
+      }
+    });
   });
   updatePost = decorate(decorators.MakeDecorator_Throttle({
     timeout: 200
   }), function(file, id, callback) {
-    if (callback) {
-      return callback();
-    }
+    var data;
+    data = fs.readFileSync(file, 'ascii');
+    return env.blog.findModels({
+      file: file
+    }, {}, function(post) {
+      if (post) {
+        post.set({
+          body: data
+        });
+        return post.flush();
+      } else {
+        return helpers.cbc(callback);
+      }
+    });
   });
-  getPost = function(file) {
-    return true;
-  };
+  createPost = decorate(decorators.MakeDecorator_Throttle({
+    timeout: 200
+  }), function(file, id, callback) {
+    var data, post, stat;
+    stat = fs.statSync(file);
+    data = fs.readFileSync(file, 'ascii');
+    post = new env.blog.models.post({
+      created: stat.ctime.getTime(),
+      modified: stat.ctime.getTime(),
+      file: file,
+      body: data
+    });
+    return post.flush(function() {
+      return helpers.cbc(callback);
+    });
+  });
   getPosts = function(search, callback) {
+    return env.blog.findModels(search, {}, callback);
+  };
+  initRoutes = function(callback) {
+    env.app.get('/', function(req, res) {
+      return res.render('index', {
+        title: 'hello there'
+      });
+    });
+    env.app.get('/posts', function(req, res) {
+      return getPosts({}, function(post) {
+        if (post) {
+          console.log('sending', post.attributes);
+          return res.write(JSON.stringify({
+            time: post.attributes.created,
+            tags: [],
+            body: converter.makeHtml(post.attributes.body)
+          }) + "\n");
+        } else {
+          return res.end();
+        }
+      });
+    });
     return callback();
   };
   init = function(callback) {

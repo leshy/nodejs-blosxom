@@ -12,11 +12,15 @@ engine = require 'ejs-locals'
 
 logger = require 'logger'
 comm = require 'comm/serverside'
+helpers = require 'helpers'
 
 decorators = require 'decorators'
 decorate = decorators.decorate
 
 hound = require 'hound'
+
+pagedown = require 'pagedown'
+converter = pagedown.getSanitizingConverter()
 
 env = {}
 
@@ -36,7 +40,9 @@ initDb = (callback) ->
     env.db.open callback
 
 initCollections = (callback) ->
-    env.blog = env.db.collection('blog',callback)
+    env.blog = new comm.MongoCollectionNode db: env.db, collection: 'blog'
+    env.post = env.blog.defineModel 'post', {}
+    callback()
 
 initExpress = (callback) ->
     env.app = app = express()
@@ -60,12 +66,6 @@ initExpress = (callback) ->
     env.log 'http server listening', {}, 'info', 'init', 'http'
     callback undefined, true
 
-initRoutes = (callback) ->
-    env.app.get '/', (req,res) ->
-      res.render 'index', { title: 'hello there' }
-        
-    callback()
-
 
 makeLogDecorator = (name) -> 
     (f,callback,args...) ->
@@ -79,8 +79,8 @@ makeLogDecorator = (name) ->
 wraplog = (name,f) -> decorators.decorate makeLogDecorator(name), f
 
 
-watchDir = (callback) -> 
-    console.log(__dirname + '/' + settings.postsfolder)
+# this chould be a msgnode.. 
+watchDir = (callback) ->
     watcher = hound.watch(__dirname + '/' + settings.postsfolder)
 
     watcher.on "create", (f,stat) ->
@@ -95,35 +95,55 @@ watchDir = (callback) ->
         updatePost(f)
         
     watcher.on "delete", (f,stat) ->
-        if stat.isFile()
-            env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
-            deletePost(f)
-        else
-            env.log('deleted dir ' + f, { file: f }, 'info', 'fs', 'dir', 'delete')
+        env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
+        deletePost(f)
         
     callback()
 
 
-deleteFolder = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
-#    console.log 'delfolder:'.red, file
-    if callback then callback()
-)
-
-deletePost = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
-#    console.log 'delpost:'.red, file
-    if callback then callback()
+deletePost = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, callback) ->
+    env.blog.findModels {file: file}, {}, (post) ->
+        if post then post.remove() else helpers.cbc(callback)
 )
 
 updatePost = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
-#    console.log 'updatepost:'.red, file
-    if callback then callback()
+    data = fs.readFileSync file, 'ascii'
+    env.blog.findModels {file: file}, {}, (post) -> if post then post.set({body: data}); post.flush() else helpers.cbc(callback)
 )
 
-getPost = (file) ->
-    true
-        
-getPosts = (search,callback) ->        
+createPost = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
+    stat = fs.statSync(file)
+    data = fs.readFileSync file, 'ascii'
+
+    post = new env.blog.models.post
+        created: stat.ctime.getTime()
+        modified: stat.ctime.getTime()
+        file: file
+        body: data
+            
+    post.flush -> helpers.cbc(callback)
+)
+
+
+
+
+getPosts = (search,callback) -> env.blog.findModels search,{},callback
+
+
+initRoutes = (callback) ->
+    env.app.get '/', (req,res) ->
+      res.render 'index', { title: 'hello there' }
+
+    env.app.get '/posts', (req,res) ->
+        getPosts {}, (post) ->
+            if post
+                console.log('sending',post.attributes)
+                res.write JSON.stringify({time: post.attributes.created, tags: [], body: converter.makeHtml(post.attributes.body)}) + "\n"
+            else
+                res.end()
     callback()
+
+
 
 init = (callback) ->
     async.auto        
