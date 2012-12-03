@@ -1,0 +1,33 @@
+
+body {
+    color:#000000;
+    background-color:#ffffff; 
+}
+
+.small {
+    font-size:0.8em;
+}
+
+.smaller {
+    font-size:0.6em;
+}
+
+a {
+    color:#222266;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.link {
+    color:#222266;
+    text-decoration: none;
+}
+
+.link:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
