@@ -1,20 +1,26 @@
+path = require 'path'
 fs = require 'fs'
 crypto = require 'crypto'
 async = require 'async'
-
-logger = require 'logger'
+_ = require 'underscore'
 
 mongodb = require 'mongodb'
 http = require 'http'
 express = require 'express'
 engine = require 'ejs-locals'
 
+
+logger = require 'logger'
+comm = require 'comm/serverside'
+
 decorators = require 'decorators'
 decorate = decorators.decorate
 
+hound = require 'hound'
+
 env = {}
 
-settings = postsfolder: "posts/"
+settings = postsfolder: "posts"
 
 initLogger = (callback) ->
     env.logger = new logger.logger()
@@ -60,6 +66,7 @@ initRoutes = (callback) ->
         
     callback()
 
+
 makeLogDecorator = (name) -> 
     (f,callback,args...) ->
         f (err,data) ->
@@ -71,16 +78,50 @@ makeLogDecorator = (name) ->
 
 wraplog = (name,f) -> decorators.decorate makeLogDecorator(name), f
 
-crawlFiles = (folder,callback) ->    
 
-refreshFiles = (callback) ->
-    shasum = (filename,callback) ->
-        s = fs.ReadStream filename
-        hash = crypto.createHash 'sha1'
-        s.on 'data', (d) -> hash.update d
-        s.on 'end', ->  callback undefined, hash.digest('hex')
+watchDir = (callback) -> 
+    console.log(__dirname + '/' + settings.postsfolder)
+    watcher = hound.watch(__dirname + '/' + settings.postsfolder)
+
+    watcher.on "create", (f,stat) ->
+        if stat.isFile()
+            env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
+            createPost(f)
+        else
+            env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
+            
+    watcher.on "change", (f,stat) ->
+        env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
+        updatePost(f)
+        
+    watcher.on "delete", (f,stat) ->
+        if stat.isFile()
+            env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
+            deletePost(f)
+        else
+            env.log('deleted dir ' + f, { file: f }, 'info', 'fs', 'dir', 'delete')
+        
     callback()
-   
+
+
+deleteFolder = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
+#    console.log 'delfolder:'.red, file
+    if callback then callback()
+)
+
+deletePost = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
+#    console.log 'delpost:'.red, file
+    if callback then callback()
+)
+
+updatePost = decorate( decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
+#    console.log 'updatepost:'.red, file
+    if callback then callback()
+)
+
+getPost = (file) ->
+    true
+        
 getPosts = (search,callback) ->        
     callback()
 
@@ -91,8 +132,10 @@ init = (callback) ->
         collections: [ 'database', wraplog('collections', initCollections) ]
         express: [ 'database', 'logger', wraplog('express',initExpress) ]
         routes: [ 'express', wraplog('routes',initRoutes) ]
-        refreshFiles: [ 'collections', wraplog('refreshFiles', refreshFiles) ]
+        watchDir: [ 'collections', wraplog('watchDir', watchDir) ]
         callback
 
-init -> env.log 'system initialized',{}, 'info','init','done'
+init ->
+    env.log 'system initialized',{}, 'info','init','done'
+
 

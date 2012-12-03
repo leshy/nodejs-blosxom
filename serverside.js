@@ -1,19 +1,23 @@
 (function() {
-  var async, crawlFiles, crypto, decorate, decorators, engine, env, express, fs, getPosts, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, refreshFiles, settings, wraplog;
+  var async, comm, crypto, decorate, decorators, deleteFolder, deletePost, engine, env, express, fs, getPost, getPosts, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, path, settings, updatePost, watchDir, wraplog, _;
   var __slice = Array.prototype.slice;
+  path = require('path');
   fs = require('fs');
   crypto = require('crypto');
   async = require('async');
-  logger = require('logger');
+  _ = require('underscore');
   mongodb = require('mongodb');
   http = require('http');
   express = require('express');
   engine = require('ejs-locals');
+  logger = require('logger');
+  comm = require('comm/serverside');
   decorators = require('decorators');
   decorate = decorators.decorate;
+  hound = require('hound');
   env = {};
   settings = {
-    postsfolder: "posts/"
+    postsfolder: "posts"
   };
   initLogger = function(callback) {
     env.logger = new logger.logger();
@@ -83,21 +87,65 @@
   wraplog = function(name, f) {
     return decorators.decorate(makeLogDecorator(name), f);
   };
-  crawlFiles = function(folder, callback) {};
-  refreshFiles = function(callback) {
-    var shasum;
-    shasum = function(filename, callback) {
-      var hash, s;
-      s = fs.ReadStream(filename);
-      hash = crypto.createHash('sha1');
-      s.on('data', function(d) {
-        return hash.update(d);
-      });
-      return s.on('end', function() {
-        return callback(void 0, hash.digest('hex'));
-      });
-    };
+  watchDir = function(callback) {
+    var watcher;
+    console.log(__dirname + '/' + settings.postsfolder);
+    watcher = hound.watch(__dirname + '/' + settings.postsfolder);
+    watcher.on("create", function(f, stat) {
+      if (stat.isFile()) {
+        env.log('created file ' + f, {
+          file: f
+        }, 'info', 'fs', 'file', 'create');
+        return createPost(f);
+      } else {
+        return env.log('created dir ' + f, {
+          file: f
+        }, 'info', 'fs', 'dir', 'create');
+      }
+    });
+    watcher.on("change", function(f, stat) {
+      env.log('file changed ' + f, {
+        file: f
+      }, 'info', 'fs', 'file', 'change');
+      return updatePost(f);
+    });
+    watcher.on("delete", function(f, stat) {
+      if (stat.isFile()) {
+        env.log('deleted file ' + f, {
+          file: f
+        }, 'info', 'fs', 'file', 'delete');
+        return deletePost(f);
+      } else {
+        return env.log('deleted dir ' + f, {
+          file: f
+        }, 'info', 'fs', 'dir', 'delete');
+      }
+    });
     return callback();
+  };
+  deleteFolder = decorate(decorators.MakeDecorator_Throttle({
+    timeout: 200
+  }), function(file, id, callback) {
+    if (callback) {
+      return callback();
+    }
+  });
+  deletePost = decorate(decorators.MakeDecorator_Throttle({
+    timeout: 200
+  }), function(file, id, callback) {
+    if (callback) {
+      return callback();
+    }
+  });
+  updatePost = decorate(decorators.MakeDecorator_Throttle({
+    timeout: 200
+  }), function(file, id, callback) {
+    if (callback) {
+      return callback();
+    }
+  });
+  getPost = function(file) {
+    return true;
   };
   getPosts = function(search, callback) {
     return callback();
@@ -109,7 +157,7 @@
       collections: ['database', wraplog('collections', initCollections)],
       express: ['database', 'logger', wraplog('express', initExpress)],
       routes: ['express', wraplog('routes', initRoutes)],
-      refreshFiles: ['collections', wraplog('refreshFiles', refreshFiles)]
+      watchDir: ['collections', wraplog('watchDir', watchDir)]
     }, callback);
   };
   init(function() {

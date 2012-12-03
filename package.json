@@ -8,7 +8,9 @@
         "email": "lesh@sysphere.org"
     },
     "dependencies": {
-        "logger": "git://github.com/leshy/comm5-logger.git"
+        "comm": "git://github.com/leshy/nodejs-comm5.git",
+        "logger": "git://github.com/leshy/comm5-logger.git",
+        "hound" : "hound >= 1.0.4"
     },
     "main": "index",
     "engines": {
