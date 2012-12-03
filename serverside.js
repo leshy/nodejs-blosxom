@@ -1,5 +1,5 @@
 (function() {
-  var async, comm, converter, createPost, crypto, decorate, decorators, deletePost, engine, env, express, fs, getPosts, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, pagedown, path, settings, updatePost, watchDir, wraplog, _;
+  var async, comm, converter, createPost, crypto, decorate, decorators, deletePost, ejslocals, env, express, fs, getPosts, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, pagedown, path, settings, updatePost, watchDir, wraplog, _;
   var __slice = Array.prototype.slice;
   path = require('path');
   fs = require('fs');
@@ -9,7 +9,7 @@
   mongodb = require('mongodb');
   http = require('http');
   express = require('express');
-  engine = require('ejs-locals');
+  ejslocals = require('ejs-locals');
   logger = require('logger');
   comm = require('comm/serverside');
   helpers = require('helpers');
@@ -21,6 +21,9 @@
   env = {};
   settings = {
     postsfolder: "posts"
+  };
+  ejslocals.ejs.filters.prettyDate = function(obj) {
+    return helpers.prettyDate(obj);
   };
   initLogger = function(callback) {
     env.logger = new logger.logger();
@@ -42,14 +45,24 @@
       db: env.db,
       collection: 'blog'
     });
-    env.post = env.blog.defineModel('post', {});
+    env.post = env.blog.defineModel('post', {
+      output: function() {
+        return {
+          id: this.attributes.id,
+          time: this.attributes.created,
+          tags: ['some', 'tag'],
+          title: this.attributes.title,
+          body: converter.makeHtml(this.attributes.body)
+        };
+      }
+    });
     return callback();
   };
   initExpress = function(callback) {
     var app;
     env.app = app = express();
     app.configure(function() {
-      app.engine('ejs', engine);
+      app.engine('ejs', ejslocals.render);
       app.set('view engine', 'ejs');
       app.set('views', __dirname + '/views');
       app.use(express.favicon());
@@ -89,7 +102,7 @@
   };
   watchDir = function(callback) {
     var watcher;
-    watcher = hound.watch(__dirname + '/' + settings.postsfolder);
+    watcher = hound.watch(settings.postsfolder);
     watcher.on("create", function(f, stat) {
       if (stat.isFile()) {
         env.log('created file ' + f, {
@@ -133,7 +146,11 @@
     timeout: 200
   }), function(file, id, callback) {
     var data;
-    data = fs.readFileSync(file, 'ascii');
+    try {
+      data = fs.readFileSync(file, 'ascii');
+    } catch (error) {
+      helpers.cbc(callback, error);
+    }
     return env.blog.findModels({
       file: file
     }, {}, function(post) {
@@ -151,12 +168,17 @@
     timeout: 200
   }), function(file, id, callback) {
     var data, post, stat;
-    stat = fs.statSync(file);
-    data = fs.readFileSync(file, 'ascii');
+    try {
+      stat = fs.statSync(file);
+      data = fs.readFileSync(file, 'ascii');
+    } catch (error) {
+      helpers.cbc(callback, error);
+    }
     post = new env.blog.models.post({
       created: stat.ctime.getTime(),
       modified: stat.ctime.getTime(),
       file: file,
+      title: file.replace(/_/g, ' '),
       body: data
     });
     return post.flush(function() {
@@ -172,15 +194,29 @@
         title: 'hello there'
       });
     });
+    env.app.get('/blog', function(req, res) {
+      var posts, serve;
+      serve = function(posts) {
+        return res.render('blog', {
+          title: 'blog',
+          posts: posts,
+          helpers: helpers
+        });
+      };
+      posts = [];
+      return getPosts({}, function(post) {
+        if (post) {
+          return posts.push(post.output());
+        } else {
+          return serve(posts);
+        }
+      });
+    });
     env.app.get('/posts', function(req, res) {
       return getPosts({}, function(post) {
         if (post) {
           console.log('sending', post.attributes);
-          return res.write(JSON.stringify({
-            time: post.attributes.created,
-            tags: [],
-            body: converter.makeHtml(post.attributes.body)
-          }) + "\n");
+          return res.write(JSON.stringify(post.output()) + "\n");
         } else {
           return res.end();
         }

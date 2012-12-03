@@ -1,15 +1,14 @@
 
 body {
     color:#000000;
-    background-color:#ffffff; 
+    font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica';
+    font-size: 0.9em;
+    background:url(/img/grid.png); 
+    background-repeat: repeat; 
 }
 
 .small {
     font-size:0.8em;
-}
-
-.smaller {
-    font-size:0.6em;
 }
 
 a {
@@ -31,3 +30,24 @@ a:hover {
     cursor: pointer;
 }
 
+.blogpost {
+    border:1px solid;
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+    padding: 20px;
+    background-color: white;    
+}
+
+
+
+.blogpost h1 {
+    font-size: 1.2em;
+}
+
+.blogpost h2 {
+    font-size: 1.1em;
+}
+.blogpost h3 {
+    font-size: 1em;
+}
