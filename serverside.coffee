@@ -19,15 +19,14 @@ decorate = decorators.decorate
 hound = require 'hound'
 
 pagedown = require 'pagedown'
-converter = pagedown.getSanitizingConverter()
+converter = new pagedown.Converter()
 
 env = {}
 
 settings = postsfolder: "posts"
 
 ejslocals.ejs.filters.prettyDate = (obj) -> 
-    helpers.prettyDate(obj)
-
+    helpers.prettyDate2(obj)
 
 initLogger = (callback) ->
     env.logger = new logger.logger()
@@ -47,9 +46,11 @@ initCollections = (callback) ->
     env.post = env.blog.defineModel 'post',
         output: ->
             id: @attributes.id
-            time: @attributes.created
-            tags: [ 'some', 'tag' ]
+            created: @attributes.created
+            modified: @attributes.modified
+            tags: _.keys @attributes.tags
             title: @attributes.title
+            link: @attributes.file
             body: converter.makeHtml(@attributes.body)
     callback()
 
@@ -87,7 +88,6 @@ makeLogDecorator = (name) ->
 
 wraplog = (name,f) -> decorators.decorate makeLogDecorator(name), f
 
-
 # this chould be a msgnode.. 
 watchDir = (callback) ->
     watcher = hound.watch(settings.postsfolder)
@@ -95,13 +95,13 @@ watchDir = (callback) ->
     watcher.on "create", (f,stat) ->
         if stat.isFile()
             env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
-            createPost(f)
+            ReadPostFile(f)
         else
             env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
             
     watcher.on "change", (f,stat) ->
         env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
-        updatePost(f)
+        ReadPostFile(f)
         
     watcher.on "delete", (f,stat) ->
         env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
@@ -114,44 +114,97 @@ deletePost = decorate decorators.MakeDecorator_Throttle({timeout: 200}), (file, 
     env.blog.findModels {file: file}, {}, (post) ->
         if post then post.remove() else helpers.cbc(callback)
 
-
-updatePost = decorate decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
+parseJSON = (data) ->    
+    match = data.match(/^(.*)\n/)
+    if match then match = match[1] else return { data: data, extraopts: {} }
+    
     try
-        data = fs.readFileSync file, 'ascii'
+        extraopts = eval("x=" + match)
+        return {data: data.replace(/^.*\n/,''), extraopts: extraopts }
     catch error
-        helpers.cbc callback, error
+        console.log(error)
+        return { data: data, extraopts: {} }
         
-    env.blog.findModels {file: file}, {}, (post) -> if post then post.set({body: data}); post.flush() else helpers.cbc(callback)
 
-createPost = decorate decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
+FindPost = (file, callback) ->
+    env.blog.findModels { file: file }, {}, (post) ->
+        if post
+            found = true
+            if not found then callback undefined, post
+        else
+            if not found then callback "not found"
+
+CreateOrUpdate = (data,callback) ->
+    FindPost data.file, (err,post) ->
+        if post then post.set(data) else post = new env.blog.models.post data
+        post.flush -> helpers.cbc(callback)
+    
+ReadPostFile = decorate decorators.MakeDecorator_Throttle({timeout: 200}), (file, id, callback) ->
     try
         stat = fs.statSync(file)
         data = fs.readFileSync file, 'ascii'
+        
+        parsed = parseJSON(data)
+        data = parsed.data
+        extraopts = parsed.extraopts
+
     catch error
         helpers.cbc callback, error
 
-    post = new env.blog.models.post
+    title = path.basename(file,path.extname(file))
+
+    options =
         created: stat.ctime.getTime()
-        modified: stat.ctime.getTime()
+        modified: stat.mtime.getTime()
         file: file
-        title: file.replace(/_/g,' ')
+        link: file
+        title: title.replace(/_/g,' ')
         body: data
-            
-    post.flush -> helpers.cbc(callback)
+        tags: []
+
+    options = _.extend options,extraopts
+        
+    # apply path as tags
+    pathtags = file.split('/')
+    pathtags.pop()
+
+    tags = {}
+    
+    _.map pathtags.concat(options.tags), (tag) ->
+        tags[tag] = true
+        
+    options.tags = tags
+    
+    CreateOrUpdate(options)
 
 
-getPosts = (search,callback) -> env.blog.findModels search,{},callback
+
+
+getPosts = (search,callback) -> env.blog.findModels search, {sort: {created: -1}} ,callback
 
 initRoutes = (callback) ->
     env.app.get '/', (req,res) ->
-      res.render 'index', { title: 'hello there' }
+      res.render 'index', { title: 'lesh.sysphere.org' }
+
+    serveposts = (posts,res) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers } 
 
     env.app.get '/blog', (req,res) ->
-        serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }            
-
         posts = []
         getPosts {}, (post) ->
-            if post then posts.push post.output() else serve(posts)
+            if post then posts.push post.output() else serveposts posts, res
+
+
+    env.app.get '/blog/get/*', (req,res) ->
+        serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
+        posts = []
+        console.log('looking for', { file: req.params[0] })
+        
+        getPosts { file: req.params[0] }, (post) ->
+            if post then posts.push post.output() else
+                if posts.length then serveposts posts, res else res.end('404')
+                    
+
+
 
     env.app.get '/posts', (req,res) ->
         getPosts {}, (post) ->
@@ -161,8 +214,6 @@ initRoutes = (callback) ->
             else
                 res.end()
     callback()
-
-
 
 
 init = (callback) ->

@@ -3,13 +3,14 @@ body {
     color:#000000;
     font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica';
     font-size: 0.9em;
-    background:url(/img/grid.png); 
+    background:url('/img/grid.png'); 
     background-repeat: repeat; 
 }
 
 .small {
     font-size:0.8em;
 }
+
 
 a {
     color:#222266;
@@ -19,6 +20,7 @@ a {
 a:hover {
     text-decoration: underline;
 }
+
 
 .link {
     color:#222266;
@@ -30,15 +32,89 @@ a:hover {
     cursor: pointer;
 }
 
+.mainheader {
+    margin-left: 15px;
+    margin-right: 20px;
+}
+
+.header.local {
+    font-size: 3em;
+    margin-right: 20px;
+    padding: 5px;
+}
+
+.header.external {
+    font-size: 2em;
+    margin-right: 20px;
+    padding: 5px;
+}
+
+.blacklink {
+    cursor: pointer;
+}
+
+.blacklink:hover {
+    color: white;
+    background: black;
+}
+
+.s100 {
+    margin: 0px;
+    margin-left: 100px;
+}
+
+.blacklink.selected {
+    color: white;
+    background: black;
+}
+
+.blogpost .date {
+    position: relative;
+    background: white;
+    bottom: -50px;
+    right: 10px;
+    float:right;
+}
+
+.blogpost .tags {
+    position: relative;
+    left: -50px;
+    top: 30px;
+    color:#222266;
+}
+
+em {
+    text-decoration: underline;
+    font-weight: normal;
+}
+
+.blogpost .title {
+    position: relative;
+    bottom: -5px;
+    letter-spacing: -2px;
+    font-size: 2.5em;
+    font-weight: normal;
+    z-index: 1;
+    color: black;
+}
+
 .blogpost {
-    border:1px solid;
     margin-top: 20px;
     margin-left: 20px;
     margin-right: 20px;
+}
+
+.blogpost .header {
+    margin: 0px;
+    padding: 0px;
+}
+
+.blogpost .body {
+    margin: 0px;
+    border:1px solid;
     padding: 20px;
     background-color: white;    
 }
-
 
 
 .blogpost h1 {
@@ -50,4 +126,9 @@ a:hover {
 }
 .blogpost h3 {
     font-size: 1em;
+}
+
+ul
+{
+    list-style-type: circle;
 }

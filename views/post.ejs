@@ -1,4 +1,11 @@
 <div class='blogpost'>
-<h1><%= post.title %></h1> - <%=: new Date(post.time) | prettyDate %> - <%= post.tags %>
-<%- post.body %>
+  <div class='header'>
+    <a href='/blog/get/<%= post.link %>'><span class='title'><%= post.title %></span></a>
+    <span class='tags'><%= post.tags %></span>
+    <span class='date'><%=: new Date(post.created) | prettyDate %>, modified <%=: new Date(post.modified) | prettyDate %></span>
+  </div>
+  <div class='body'>
+    
+    <%- post.body %>
+  </div>
 </div>
