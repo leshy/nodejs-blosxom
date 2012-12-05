@@ -1,11 +1,12 @@
 (function() {
-  var CreateOrUpdate, FindPost, ReadPostFile, async, comm, converter, crypto, decorate, decorators, deletePost, ejslocals, env, express, fs, getPosts, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, pagedown, parseJSON, path, settings, watchDir, wraplog, _;
-  var __slice = Array.prototype.slice;
+  var Backbone, Wiki, async, comm, converter, crypto, decorate, decorators, ejslocals, env, express, fs, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, pagedown, path, settings, wiki, wraplog, _;
+  var __slice = Array.prototype.slice, __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
   path = require('path');
   fs = require('fs');
   crypto = require('crypto');
   async = require('async');
   _ = require('underscore');
+  Backbone = require('backbone4000');
   mongodb = require('mongodb');
   http = require('http');
   express = require('express');
@@ -102,142 +103,180 @@
   wraplog = function(name, f) {
     return decorators.decorate(makeLogDecorator(name), f);
   };
-  watchDir = function(callback) {
-    var watcher;
-    watcher = hound.watch(settings.postsfolder);
-    watcher.on("create", function(f, stat) {
-      if (stat.isFile()) {
-        env.log('created file ' + f, {
-          file: f
-        }, 'info', 'fs', 'file', 'create');
-        return ReadPostFile(f);
-      } else {
-        return env.log('created dir ' + f, {
-          file: f
-        }, 'info', 'fs', 'dir', 'create');
-      }
-    });
-    watcher.on("change", function(f, stat) {
-      env.log('file changed ' + f, {
-        file: f
-      }, 'info', 'fs', 'file', 'change');
-      return ReadPostFile(f);
-    });
-    watcher.on("delete", function(f, stat) {
-      env.log('deleted file ' + f, {
-        file: f
-      }, 'info', 'fs', 'file', 'delete');
-      return deletePost(f);
-    });
-    return callback();
-  };
-  deletePost = decorate(decorators.MakeDecorator_Throttle({
-    timeout: 200
-  }), function(file, callback) {
-    return env.blog.findModels({
-      file: file
-    }, {}, function(post) {
-      if (post) {
-        return post.remove();
-      } else {
-        return helpers.cbc(callback);
-      }
-    });
-  });
-  parseJSON = function(data) {
-    var extraopts, match;
-    match = data.match(/^(.*)\n/);
-    if (match) {
-      match = match[1];
-    } else {
-      return {
-        data: data,
-        extraopts: {}
-      };
-    }
-    try {
-      extraopts = eval("x=" + match);
-      return {
-        data: data.replace(/^.*\n/, ''),
-        extraopts: extraopts
-      };
-    } catch (error) {
-      console.log(error);
-      return {
-        data: data,
-        extraopts: {}
-      };
-    }
-  };
-  FindPost = function(file, callback) {
-    return env.blog.findModels({
-      file: file
-    }, {}, function(post) {
-      var found;
-      if (post) {
-        found = true;
-        if (!found) {
-          return callback(void 0, post);
+  Wiki = Backbone.Model.extend4000({
+    initialize: function() {
+      return this.when('dir', __bind(function(dir) {
+        this.watchDir(dir);
+        return this.crawlDir(dir, __bind(function(file) {
+          return this.pingFile(file);
+        }, this));
+      }, this));
+    },
+    crawlDir: function(dir, callback) {
+      return fs.readdir(dir, __bind(function(err, files) {
+        if (err) {
+          return;
         }
-      } else {
-        if (!found) {
-          return callback("not found");
+        return _.map(files, __bind(function(file) {
+          var stat;
+          file = path.normalize(dir + "/" + file);
+          stat = fs.statSync(file);
+          if (stat.isDirectory()) {
+            this.crawlDir(file, callback);
+          }
+          if (stat.isFile()) {
+            return helpers.cbc(callback, file);
+          }
+        }, this));
+      }, this));
+    },
+    watchDir: function(dir) {
+      var watcher;
+      watcher = hound.watch(dir);
+      watcher.on("create", __bind(function(f, stat) {
+        if (stat.isFile()) {
+          env.log('created file ' + f, {
+            file: f
+          }, 'info', 'fs', 'file', 'create');
+          return this.fileChanged(f);
+        } else {
+          return env.log('created dir ' + f, {
+            file: f
+          }, 'info', 'fs', 'dir', 'create');
         }
-      }
-    });
-  };
-  CreateOrUpdate = function(data, callback) {
-    return FindPost(data.file, function(err, post) {
-      if (post) {
-        post.set(data);
-      } else {
-        post = new env.blog.models.post(data);
-      }
-      return post.flush(function() {
-        return helpers.cbc(callback);
+      }, this));
+      watcher.on("change", __bind(function(f, stat) {
+        env.log('file changed ' + f, {
+          file: f
+        }, 'info', 'fs', 'file', 'change');
+        return this.fileChanged(f);
+      }, this));
+      return watcher.on("delete", __bind(function(f, stat) {
+        env.log('deleted file ' + f, {
+          file: f
+        }, 'info', 'fs', 'file', 'delete');
+        return this.delPost({
+          file: file
+        });
+      }, this));
+    },
+    delPost: function(search, callback) {
+      return env.blog.findModels(search, {}, function(post) {
+        if (post) {
+          return post.remove();
+        } else {
+          return helpers.cbc(callback);
+        }
       });
-    });
-  };
-  ReadPostFile = decorate(decorators.MakeDecorator_Throttle({
-    timeout: 200
-  }), function(file, id, callback) {
-    var data, extraopts, options, parsed, pathtags, stat, tags, title;
-    try {
-      stat = fs.statSync(file);
-      data = fs.readFileSync(file, 'ascii');
-      parsed = parseJSON(data);
-      data = parsed.data;
-      extraopts = parsed.extraopts;
-    } catch (error) {
-      helpers.cbc(callback, error);
-    }
-    title = path.basename(file, path.extname(file));
-    options = {
-      created: stat.ctime.getTime(),
-      modified: stat.mtime.getTime(),
-      file: file,
-      link: file,
-      title: title.replace(/_/g, ' '),
-      body: data,
-      tags: []
-    };
-    options = _.extend(options, extraopts);
-    pathtags = file.split('/');
-    pathtags.pop();
-    tags = {};
-    _.map(pathtags.concat(options.tags), function(tag) {
-      return tags[tag] = true;
-    });
-    options.tags = tags;
-    return CreateOrUpdate(options);
-  });
-  getPosts = function(search, callback) {
-    return env.blog.findModels(search, {
-      sort: {
-        created: -1
+    },
+    getPost: function(search, callback) {
+      var found;
+      found = false;
+      return env.blog.findModels(search, {}, function(post) {
+        if (post) {
+          if (!found) {
+            found = true;
+            return callback(void 0, post);
+          } else {
+
+          }
+        } else {
+          if (!found) {
+            return callback("not found");
+          }
+        }
+      });
+    },
+    getPosts: function(search, callback) {
+      return env.blog.findModels(search, {
+        sort: {
+          created: -1
+        }
+      }, callback);
+    },
+    pingFile: function(file, callback) {
+      return this.getPost({
+        file: file
+      }, __bind(function(err, post) {
+        var stat;
+        if (err) {
+          this.fileChanged(file, callback);
+          return;
+        }
+        try {
+          stat = fs.statSync(file);
+          if (post.get('modified') === !stat.mtime.getTime()) {
+            return this.fileChanged(file, callback);
+          } else {
+            return helpers.cbc(callback);
+          }
+        } catch (error) {
+          return callback("can't read file stat");
+        }
+      }, this));
+    },
+    fileChanged: function(file, callback) {
+      var data;
+      data = this.parseFile(file);
+      if (!data) {
+        callback(true);
       }
-    }, callback);
-  };
+      return this.getPost({
+        file: data.file
+      }, function(err, post) {
+        if (post) {
+          post.set(data);
+        } else {
+          post = new env.blog.models.post(data);
+        }
+        return post.flush(function() {
+          return helpers.cbc(callback);
+        });
+      });
+    },
+    parseFile: function(file) {
+      var data, manualOptions, match, options, pathtags, stat, tags;
+      try {
+        stat = fs.statSync(file);
+        data = fs.readFileSync(file, 'ascii');
+      } catch (error) {
+        return;
+      }
+      match = data.match(/^(.*)\n/);
+      if (match) {
+        match = match[1];
+      } else {
+        return {
+          data: data,
+          extraopts: {}
+        };
+      }
+      try {
+        manualOptions = eval("x=" + match);
+        data = data.replace(/^.*\n/, '');
+      } catch (error) {
+        manualOptions = {};
+      }
+      options = {
+        created: stat.ctime.getTime(),
+        modified: stat.mtime.getTime(),
+        file: file,
+        link: file,
+        title: path.basename(file, path.extname(file)).replace(/_/g, ' '),
+        body: data,
+        tags: []
+      };
+      options = _.extend(options, manualOptions);
+      pathtags = file.split('/');
+      pathtags.pop();
+      tags = {};
+      _.map(pathtags.concat(options.tags), function(tag) {
+        return tags[tag] = true;
+      });
+      options.tags = tags;
+      return options;
+    }
+  });
   initRoutes = function(callback) {
     var serveposts;
     env.app.get('/', function(req, res) {
@@ -255,7 +294,7 @@
     env.app.get('/blog', function(req, res) {
       var posts;
       posts = [];
-      return getPosts({}, function(post) {
+      return env.wiki.getPosts({}, function(post) {
         if (post) {
           return posts.push(post.output());
         } else {
@@ -276,7 +315,7 @@
       console.log('looking for', {
         file: req.params[0]
       });
-      return getPosts({
+      return env.wiki.getPosts({
         file: req.params[0]
       }, function(post) {
         if (post) {
@@ -291,7 +330,7 @@
       });
     });
     env.app.get('/posts', function(req, res) {
-      return getPosts({}, function(post) {
+      return env.wiki.getPosts({}, function(post) {
         if (post) {
           console.log('sending', post.attributes);
           return res.write(JSON.stringify(post.output()) + "\n");
@@ -302,14 +341,20 @@
     });
     return callback();
   };
+  wiki = function(callback) {
+    env.wiki = new Wiki({
+      dir: settings.postsfolder
+    });
+    return callback();
+  };
   init = function(callback) {
     return async.auto({
       logger: initLogger,
       database: ['logger', wraplog('database', initDb)],
       collections: ['database', wraplog('collections', initCollections)],
       express: ['database', 'logger', wraplog('express', initExpress)],
-      routes: ['express', wraplog('routes', initRoutes)],
-      watchDir: ['collections', wraplog('watchDir', watchDir)]
+      routes: ['express', 'wiki', wraplog('routes', initRoutes)],
+      wiki: ['collections', wraplog('wiki', wiki)]
     }, callback);
   };
   init(function() {
