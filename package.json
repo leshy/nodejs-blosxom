@@ -1,21 +1,20 @@
 {
-    "name": "node-blosxom",
-    "version": "0.0.1",
-    "description": "node-blosxom",
-    "private": true,
-    "author": {
-        "name": "Ivan Nikolic [lesh]",
-        "email": "lesh@sysphere.org"
-    },
-    "dependencies": {
-        "comm": "git://github.com/leshy/nodejs-comm5.git",
-        "logger": "git://github.com/leshy/comm5-logger.git",
-        "hound" : "hound >= 1.0.4"
-    },
-    "main": "index",
-    "engines": {
-        "node": "node >= 0.4.x"
-    }
+  "name": "node-blosxom",
+  "version": "0.0.1",
+  "description": "node-blosxom",
+  "private": true,
+  "author": {
+    "name": "Ivan Nikolic [lesh]",
+    "email": "lesh@sysphere.org"
+  },
+  "dependencies": {
+    "comm": "git://github.com/leshy/nodejs-comm5.git",
+    "logger": "git://github.com/leshy/comm5-logger.git",
+    "hound": "hound >= 1.0.4",
+    "rss": "0.0.4"
+  },
+  "main": "index",
+  "engines": {
+    "node": "node >= 0.4.x"
+  }
 }
-
-

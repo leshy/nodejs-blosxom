@@ -18,6 +18,7 @@ decorators = require 'decorators'
 decorate = decorators.decorate
 
 hound = require 'hound'
+rss = require('rss');
 
 pagedown = require 'pagedown'
 converter = new pagedown.Converter()
@@ -45,11 +46,11 @@ initDb = (callback) ->
 initCollections = (callback) ->
     env.blog = new comm.MongoCollectionNode db: env.db, collection: 'blog'
     env.post = env.blog.defineModel 'post',
-        output: ->
+        output: (ignoretags) ->
             id: @attributes.id
             created: @attributes.created
             modified: @attributes.modified
-            tags: _.keys @attributes.tags
+            tags: _.without.apply(this, [ _.keys(@attributes.tags) ].concat(ignoretags)) # blah
             title: @attributes.title
             link: @attributes.file
             body: converter.makeHtml(@attributes.body)
@@ -76,7 +77,6 @@ initExpress = (callback) ->
     env.server.listen 3333
     env.log 'http server listening', {}, 'info', 'init', 'http'
     callback undefined, true
-
 
 makeLogDecorator = (name) -> 
     (f,callback,args...) ->
@@ -112,18 +112,18 @@ Wiki = Backbone.Model.extend4000
 
         watcher.on "create", (f,stat) =>
             if stat.isFile()
-                env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
+                #env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
                 @fileChanged(f)
-            else
-                env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
+            #else
+                #env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
                 
         watcher.on "change", (f,stat) =>
-            env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
-            @fileChanged(f)
+            #env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
+            setTimeout @fileChanged(f), 500
             
         watcher.on "delete", (f,stat) =>
-            env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
-            @delPost { file: file }
+            #env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
+            @delPost { file: f }
         
     delPost: (search, callback) ->
         env.blog.findModels search, {}, (post) ->
@@ -137,27 +137,26 @@ Wiki = Backbone.Model.extend4000
             else
                 if not found then callback "not found"
 
-
     getPosts: (search,callback) -> env.blog.findModels search, {sort: {created: -1}}, callback
-
 
     pingFile: (file,callback) ->
         @getPost {file: file}, (err,post) =>
             if err then @fileChanged(file,callback); return
             try
                 stat = fs.statSync(file)
-                if post.get('modified') is not stat.mtime.getTime() then @fileChanged(file,callback) else helpers.cbc callback
+                if post.get('modified') != stat.mtime.getTime() then @fileChanged(file,callback) else helpers.cbc callback
             catch error
+                console.log("can't read stat")
                 callback "can't read file stat"
 
-
-    fileChanged: (file,callback) ->
+    fileChanged: decorate( decorators.MakeDecorator_OneArg(), (file,callback) ->
         data = @parseFile(file)
-        if not data then callback true
-
+        if not data then helpers.cbc callback, true; return
+        env.log('updating entry ' + file, { file: file }, 'info', 'wiki', 'file', 'change')
         @getPost { file: data.file }, (err,post) ->
             if post then post.set(data) else post = new env.blog.models.post data
-            post.flush -> helpers.cbc(callback)
+            post.flush -> helpers.cbc callback
+    )
     
     parseFile: (file) ->
         # read file contents and stat
@@ -179,7 +178,7 @@ Wiki = Backbone.Model.extend4000
 
         # generate basic options
         options =
-            created: stat.ctime.getTime()
+            created: new Date().getTime()
             modified: stat.mtime.getTime()
             file: file
             link: file
@@ -192,6 +191,7 @@ Wiki = Backbone.Model.extend4000
         # apply path as tags
         pathtags = file.split('/')
         pathtags.pop()
+        pathtags.shift()
 
         tags = {}
         
@@ -212,10 +212,18 @@ initRoutes = (callback) ->
 
     env.app.get '/blog', (req,res) ->
         posts = []
-        env.wiki.getPosts {}, (post) ->
-            if post then posts.push post.output() else serveposts posts, res
+        env.wiki.getPosts { "tags.blog": true }, (post) ->
+            if post then posts.push post.output(['blog']) else serveposts posts, res
 
-    env.app.get '/blog/get/*', (req,res) ->
+    env.app.get '/projects', (req,res) ->
+        posts = []
+        env.wiki.getPosts { "tags.project": true, "tags.mainpage": true }, (post) ->
+            if post
+                posts.push post.output(["project","mainpage"])
+            else
+                res.render 'projects', { title: 'projects', posts: posts, helpers: helpers } 
+
+    env.app.get '/article/*', (req,res) ->
         serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
         posts = []
         console.log('looking for', { file: req.params[0] })
@@ -234,8 +242,17 @@ initRoutes = (callback) ->
     callback()
 
 
+initRss = (callback) ->
+    env.rssfeed = new rss
+            title: 'lesh blog',
+            description: '2blog',
+            feed_url: 'http://lesh.sysphere.org/blog/rss.xml',
+            site_url: 'http://lesh.sysphere.org',
+            author: 'lesh'
 
-wiki = (callback) ->
+    callback()
+    
+initWiki = (callback) ->
     env.wiki = new Wiki {dir: settings.postsfolder}
     callback()
 
@@ -246,9 +263,10 @@ init = (callback) ->
         logger: initLogger
         database: [ 'logger', wraplog('database', initDb) ]
         collections: [ 'database', wraplog('collections', initCollections) ]
+        wiki: [ 'collections', wraplog('wiki', initWiki) ]
         express: [ 'database', 'logger', wraplog('express',initExpress) ]
-        routes: [ 'express', 'wiki', wraplog('routes',initRoutes) ]
-        wiki: [ 'collections', wraplog('wiki', wiki) ]
+        routes: [ 'express', 'wiki', 'rss', wraplog('routes',initRoutes) ]
+        rss: [ 'collections', 'wiki', wraplog('rss', initRss) ]
         callback
 
 init ->

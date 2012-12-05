@@ -1,8 +1,8 @@
 <div class='blogpost'>
   <div class='header'>
-    <a href='/blog/get/<%= post.link %>'><span class='title'><%= post.title %></span></a>
+    <a href='/article/<%= post.link %>'><span class='title'><%= post.title %></span></a>
     <span class='tags'><%= post.tags %></span>
-    <span class='date'><%=: new Date(post.created) | prettyDate %>, modified <%=: new Date(post.modified) | prettyDate %></span>
+    <span class='date'><%=: new Date(post.modified) | prettyDate %></span>
   </div>
   <div class='body'>
     

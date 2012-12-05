@@ -1,5 +1,5 @@
 (function() {
-  var Backbone, Wiki, async, comm, converter, crypto, decorate, decorators, ejslocals, env, express, fs, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, logger, makeLogDecorator, mongodb, pagedown, path, settings, wiki, wraplog, _;
+  var Backbone, Wiki, async, comm, converter, crypto, decorate, decorators, ejslocals, env, express, fs, helpers, hound, http, init, initCollections, initDb, initExpress, initLogger, initRoutes, initRss, initWiki, logger, makeLogDecorator, mongodb, pagedown, path, rss, settings, wraplog, _;
   var __slice = Array.prototype.slice, __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
   path = require('path');
   fs = require('fs');
@@ -17,6 +17,7 @@
   decorators = require('decorators');
   decorate = decorators.decorate;
   hound = require('hound');
+  rss = require('rss');
   pagedown = require('pagedown');
   converter = new pagedown.Converter();
   env = {};
@@ -47,12 +48,12 @@
       collection: 'blog'
     });
     env.post = env.blog.defineModel('post', {
-      output: function() {
+      output: function(ignoretags) {
         return {
           id: this.attributes.id,
           created: this.attributes.created,
           modified: this.attributes.modified,
-          tags: _.keys(this.attributes.tags),
+          tags: _.without.apply(this, [_.keys(this.attributes.tags)].concat(ignoretags)),
           title: this.attributes.title,
           link: this.attributes.file,
           body: converter.makeHtml(this.attributes.body)
@@ -135,28 +136,15 @@
       watcher = hound.watch(dir);
       watcher.on("create", __bind(function(f, stat) {
         if (stat.isFile()) {
-          env.log('created file ' + f, {
-            file: f
-          }, 'info', 'fs', 'file', 'create');
           return this.fileChanged(f);
-        } else {
-          return env.log('created dir ' + f, {
-            file: f
-          }, 'info', 'fs', 'dir', 'create');
         }
       }, this));
       watcher.on("change", __bind(function(f, stat) {
-        env.log('file changed ' + f, {
-          file: f
-        }, 'info', 'fs', 'file', 'change');
-        return this.fileChanged(f);
+        return setTimeout(this.fileChanged(f), 500);
       }, this));
       return watcher.on("delete", __bind(function(f, stat) {
-        env.log('deleted file ' + f, {
-          file: f
-        }, 'info', 'fs', 'file', 'delete');
         return this.delPost({
-          file: file
+          file: f
         });
       }, this));
     },
@@ -205,22 +193,27 @@
         }
         try {
           stat = fs.statSync(file);
-          if (post.get('modified') === !stat.mtime.getTime()) {
+          if (post.get('modified') !== stat.mtime.getTime()) {
             return this.fileChanged(file, callback);
           } else {
             return helpers.cbc(callback);
           }
         } catch (error) {
+          console.log("can't read stat");
           return callback("can't read file stat");
         }
       }, this));
     },
-    fileChanged: function(file, callback) {
+    fileChanged: decorate(decorators.MakeDecorator_OneArg(), function(file, callback) {
       var data;
       data = this.parseFile(file);
       if (!data) {
-        callback(true);
+        helpers.cbc(callback, true);
+        return;
       }
+      env.log('updating entry ' + file, {
+        file: file
+      }, 'info', 'wiki', 'file', 'change');
       return this.getPost({
         file: data.file
       }, function(err, post) {
@@ -233,7 +226,7 @@
           return helpers.cbc(callback);
         });
       });
-    },
+    }),
     parseFile: function(file) {
       var data, manualOptions, match, options, pathtags, stat, tags;
       try {
@@ -258,7 +251,7 @@
         manualOptions = {};
       }
       options = {
-        created: stat.ctime.getTime(),
+        created: new Date().getTime(),
         modified: stat.mtime.getTime(),
         file: file,
         link: file,
@@ -269,6 +262,7 @@
       options = _.extend(options, manualOptions);
       pathtags = file.split('/');
       pathtags.pop();
+      pathtags.shift();
       tags = {};
       _.map(pathtags.concat(options.tags), function(tag) {
         return tags[tag] = true;
@@ -294,15 +288,35 @@
     env.app.get('/blog', function(req, res) {
       var posts;
       posts = [];
-      return env.wiki.getPosts({}, function(post) {
+      return env.wiki.getPosts({
+        "tags.blog": true
+      }, function(post) {
         if (post) {
-          return posts.push(post.output());
+          return posts.push(post.output(['blog']));
         } else {
           return serveposts(posts, res);
         }
       });
     });
-    env.app.get('/blog/get/*', function(req, res) {
+    env.app.get('/projects', function(req, res) {
+      var posts;
+      posts = [];
+      return env.wiki.getPosts({
+        "tags.project": true,
+        "tags.mainpage": true
+      }, function(post) {
+        if (post) {
+          return posts.push(post.output(["project", "mainpage"]));
+        } else {
+          return res.render('projects', {
+            title: 'projects',
+            posts: posts,
+            helpers: helpers
+          });
+        }
+      });
+    });
+    env.app.get('/article/*', function(req, res) {
       var posts, serve;
       serve = function(posts) {
         return res.render('blog', {
@@ -341,7 +355,17 @@
     });
     return callback();
   };
-  wiki = function(callback) {
+  initRss = function(callback) {
+    env.rssfeed = new rss({
+      title: 'lesh blog',
+      description: '2blog',
+      feed_url: 'http://lesh.sysphere.org/blog/rss.xml',
+      site_url: 'http://lesh.sysphere.org',
+      author: 'lesh'
+    });
+    return callback();
+  };
+  initWiki = function(callback) {
     env.wiki = new Wiki({
       dir: settings.postsfolder
     });
@@ -352,9 +376,10 @@
       logger: initLogger,
       database: ['logger', wraplog('database', initDb)],
       collections: ['database', wraplog('collections', initCollections)],
+      wiki: ['collections', wraplog('wiki', initWiki)],
       express: ['database', 'logger', wraplog('express', initExpress)],
-      routes: ['express', 'wiki', wraplog('routes', initRoutes)],
-      wiki: ['collections', wraplog('wiki', wiki)]
+      routes: ['express', 'wiki', 'rss', wraplog('routes', initRoutes)],
+      rss: ['collections', 'wiki', wraplog('rss', initRss)]
     }, callback);
   };
   init(function() {
