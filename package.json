@@ -10,8 +10,12 @@
   "dependencies": {
     "comm": "git://github.com/leshy/nodejs-comm5.git",
     "logger": "git://github.com/leshy/comm5-logger.git",
+    "collections": "git://github.com/leshy/collections.git",
     "hound": "hound >= 1.0.4",
-    "rss": "0.0.4"
+    "rss": "0.0.4",
+    "zeptoify": "~1.0.0rc1",
+    "browserify-jquery": "~1.6.3",
+    "jquery": "~1.8.3"
   },
   "main": "index",
   "engines": {

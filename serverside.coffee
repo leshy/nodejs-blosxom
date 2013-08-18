@@ -11,14 +11,14 @@ express = require 'express'
 ejslocals = require 'ejs-locals'
 
 logger = require 'logger'
-comm = require 'comm/serverside'
+collections = require 'collections/serverside'
 helpers = require 'helpers'
 
 decorators = require 'decorators'
 decorate = decorators.decorate
 
 hound = require 'hound'
-rss = require('rss');
+rss = require 'rss'
 
 pagedown = require 'pagedown'
 converter = new pagedown.Converter()
@@ -28,7 +28,7 @@ env = {}
 settings = postsfolder: "posts"
 
 ejslocals.ejs.filters.prettyDate = (obj) -> 
-    helpers.prettyDate2(obj)
+    helpers.prettyDate(obj)
 
 initLogger = (callback) ->
     env.logger = new logger.logger()
@@ -44,7 +44,7 @@ initDb = (callback) ->
     env.db.open callback
 
 initCollections = (callback) ->
-    env.blog = new comm.MongoCollectionNode db: env.db, collection: 'blog'
+    env.blog = new collections.MongoCollection db: env.db, collection: 'blog'
     env.post = env.blog.defineModel 'post',
         output: (ignoretags) ->
             id: @attributes.id
@@ -95,8 +95,7 @@ Wiki = Backbone.Model.extend4000
         @when 'dir', (dir) =>
             @watchDir dir
             @crawlDir dir, (file) => @pingFile(file)
-        
-        
+                
     crawlDir: (dir,callback) ->
         fs.readdir dir, (err,files) =>
             if err then return
@@ -106,23 +105,22 @@ Wiki = Backbone.Model.extend4000
                 if stat.isDirectory() then @crawlDir file, callback
                 if stat.isFile() then helpers.cbc callback, file
             
-
     watchDir: (dir) -> 
         watcher = hound.watch(dir)
 
         watcher.on "create", (f,stat) =>
             if stat.isFile()
-                #env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
+                env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
                 @fileChanged(f)
-            #else
-                #env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
+            else
+                env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
                 
         watcher.on "change", (f,stat) =>
-            #env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
+            env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
             setTimeout @fileChanged(f), 500
             
         watcher.on "delete", (f,stat) =>
-            #env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
+            env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
             @delPost { file: f }
         
     delPost: (search, callback) ->
@@ -210,6 +208,7 @@ initRoutes = (callback) ->
 
     serveposts = (posts,res) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers } 
 
+
     env.app.get '/blog', (req,res) ->
         posts = []
         env.wiki.getPosts { "tags.blog": true }, (post) ->
@@ -231,7 +230,36 @@ initRoutes = (callback) ->
         env.wiki.getPosts { file: req.params[0] }, (post) ->
             if post then posts.push post.output() else
                 if posts.length then serveposts posts, res else res.end('404')
-                    
+
+    env.app.get '/tag/:tags*', (req,res) ->
+        posts = []
+        outputtype = req.params[1]
+        
+        tags = '+' + req.params.tags
+
+        tags = tags.replace('+', ' +')
+        tags = tags.replace('-', ' -')
+        tags_yes = _.map tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
+        tags_no = _.map tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
+
+        # here we add forbidden tags for this user / filter depending on permission
+                        
+        query = { "$and" : [] }
+
+        _.map tags_yes, (tag) ->
+            ret = {}; ret['tags.' + tag] = true
+            query["$and"].push ret
+
+        _.map tags_no, (tag) ->
+            ret = {}; ret['tags.' + tag] = { "$exists" : false }
+            query["$and"].push ret
+
+        
+        console.log(JSON.stringify(query))
+        env.wiki.getPosts query, (post) -> 
+            if post then posts.push post.output(tags_yes) else serveposts posts, res
+        
+    
     env.app.get '/posts', (req,res) ->
         env.wiki.getPosts {}, (post) ->
             if post
@@ -257,7 +285,6 @@ initWiki = (callback) ->
     callback()
 
 
-
 init = (callback) ->
     async.auto        
         logger: initLogger
@@ -269,5 +296,10 @@ init = (callback) ->
         rss: [ 'collections', 'wiki', wraplog('rss', initRss) ]
         callback
 
-init ->
-    env.log 'system initialized',{}, 'info','init','done'
+init (err,data) ->
+    if not err
+        env.log 'system initialized',{}, 'info','init','done'
+    else
+        env.log 'system init failed',{}, 'info','init','error'
+
+

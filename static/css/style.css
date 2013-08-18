@@ -70,6 +70,16 @@ a:hover {
     float:right;
 }
 
+.blogpost .date .full {
+    font-size: 0.75em;
+    color: #333;
+}
+
+.blogpost .date .pretty {
+
+}
+
+
 .blogpost .tags {
     position: relative;
     left: 10px;

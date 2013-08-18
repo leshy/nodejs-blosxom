@@ -1,10 +1,12 @@
 <% layout('layout') -%>
 <div class='mainheader'>
-<span class='header local blacklink'>/</span>
-<span class='header local blacklink selected'>/blog</span>
-<a href="/projects"><span class='header local blacklink'>/projects</span></a>
-<span class='header local blacklink'>/wiki</span>
-<span class='header local blacklink'>/images</span>
+
+<% links = [ '/', '/blog', '/projects', '/tag', '/tree' ] %>
+
+<% for(var i=0; i<links.length; i++) { %>
+<a href="<%= links[i] %>"><span class='header local blacklink'><%= links[i] %></span></a>
+<% } %>
+
 <span class='header local'>&nbsp;</span>
 <a href="/"><span class='header external'>contact</span></a>
 <a href="https://github.com/leshy"><span class='header external'>github</span></a>

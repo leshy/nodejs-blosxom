@@ -1,8 +1,19 @@
 <div class='blogpost'>
   <div class='header'>
     <a href='/article/<%= post.link %>'><span class='title'><%= post.title %></span></a>
-    <span class='tags'><%= post.tags %></span>
-    <span class='date'><%=: new Date(post.modified) | prettyDate %></span>
+    <% if (post.tags.length > 0) { %>
+    <span class='tags'>
+    <% for(var i=0; i<post.tags.length; i++) { %>
+            <a href='/tag/<%= post.tags[i] %>'><%= post.tags[i] %></a><% if (post.tags.length - 1 > i) { %>,<% } %>
+            
+    <% } %>
+    </span>
+    <% } %>
+
+    <span class='date'>
+    <span class='full'><%=: new Date(post.modified)%>,</span>
+    <span class='pretty'><%=: new Date(post.modified) | prettyDate %></span>
+    </span>
   </div>
   <div class='body'>
     
