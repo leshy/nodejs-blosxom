@@ -10,7 +10,6 @@ http = require 'http'
 express = require 'express'
 ejslocals = require 'ejs-locals'
 
-logger = require 'logger'
 collections = require 'collections/serverside'
 helpers = require 'helpers'
 
@@ -30,14 +29,26 @@ settings = postsfolder: "posts"
 ejslocals.ejs.filters.prettyDate = (obj) -> 
     helpers.prettyDate(obj)
 
-initLogger = (callback) ->
-    env.logger = new logger.logger()
-    env.consoleLogger = new logger.consoleLogger()
-    env.logger.pass()
-    env.logger.connect(env.consoleLogger)
-    env.log = env.logger.log.bind(env.logger)
+initLogger = (env,callback) ->    
+    env.log = (text,data,taglist...) ->
+        tags = {}
+        _.map taglist, (tag) -> tags[tag] = true
+        if tags.error then text = text.red
+        if tags.error and _.keys(data).length then json = " " + JSON.stringify(msg.data) else json = ""
+        console.log String(new Date()).yellow + " " + _.keys(tags).join(', ').green + " " + text + json
+
+    env.logres = (name, callback) ->
+        (err,data) -> 
+            if (err)
+                env.log name + ': ' + err, {error: err}, 'init', 'fail'
+            else
+                env.log name + "...", {}, 'init', 'ok'
+            callback(err,data)
+        
     env.log('logger initialized', {}, 'init','info')
+
     callback()
+
 
 initDb = (callback) ->
     env.db = new mongodb.Db 'blog', new mongodb.Server('localhost', 27017), safe: true
@@ -88,7 +99,6 @@ makeLogDecorator = (name) ->
             callback(err,data)
 
 wraplog = (name,f) -> decorators.decorate makeLogDecorator(name), f
-
 
 Wiki = Backbone.Model.extend4000
     initialize: ->
@@ -147,14 +157,13 @@ Wiki = Backbone.Model.extend4000
                 console.log("can't read stat")
                 callback "can't read file stat"
 
-    fileChanged: decorate( decorators.MakeDecorator_OneArg(), (file,callback) ->
+    fileChanged: (file,callback) ->
         data = @parseFile(file)
-        if not data then helpers.cbc callback, true; return
+        if not data then helpers.cbc callback, true; console.log "NO DATA"; return
         env.log('updating entry ' + file, { file: file }, 'info', 'wiki', 'file', 'change')
         @getPost { file: data.file }, (err,post) ->
             if post then post.set(data) else post = new env.blog.models.post data
-            post.flush -> helpers.cbc callback
-    )
+            post.flush helpers.cbc callback
     
     parseFile: (file) ->
         # read file contents and stat
@@ -287,7 +296,7 @@ initWiki = (callback) ->
 
 init = (callback) ->
     async.auto        
-        logger: initLogger
+        logger: (callback) -> initLogger(env,callback)
         database: [ 'logger', wraplog('database', initDb) ]
         collections: [ 'database', wraplog('collections', initCollections) ]
         wiki: [ 'collections', wraplog('wiki', initWiki) ]
