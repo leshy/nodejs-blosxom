@@ -34,7 +34,7 @@ initLogger = (env,callback) ->
         tags = {}
         _.map taglist, (tag) -> tags[tag] = true
         if tags.error then text = text.red
-        if tags.error and _.keys(data).length then json = " " + JSON.stringify(msg.data) else json = ""
+        if tags.error and _.keys(data).length then json = " " + JSON.stringify(tags.error) else json = ""
         console.log String(new Date()).yellow + " " + _.keys(tags).join(', ').green + " " + text + json
 
     env.logres = (name, callback) ->
@@ -147,6 +147,27 @@ Wiki = Backbone.Model.extend4000
 
     getPosts: (search,callback) -> env.blog.findModels search, {sort: {created: -1}}, callback
 
+    getPostsByTags: (search = {}, tags_yes=[], tags_no=[], callback) ->
+        query = {}
+        
+        _.map tags_yes, (tag) ->
+            ret = {}; ret['tags.' + tag] = true
+            query = ret
+
+        _.map tags_no, (tag) ->
+            ret = {}; ret['tags.' + tag] = { "$exists" : false }
+            if query then query = { "$and" : [query, ret] } else query = ret
+        
+        env.blog.findModels _.extend( search, query ), {sort: {created: -1}}, callback
+
+    getTags: (search = {}, tags_yes=[],tags_no=[],callback) ->
+        tagdata = {}
+        @getPostsByTags {}, tags_yes, tags_no, (post) ->
+            if not post then callback helpers.scaleDict tagdata; return
+            posttags = post.get('tags')
+            _.map tags_yes, (tag) -> delete posttags[tag]
+            helpers.countExtend tagdata, posttags
+        
     pingFile: (file,callback) ->
         @getPost {file: file}, (err,post) =>
             if err then @fileChanged(file,callback); return
@@ -162,7 +183,7 @@ Wiki = Backbone.Model.extend4000
         if not data then helpers.cbc callback, true; console.log "NO DATA"; return
         env.log('updating entry ' + file, { file: file }, 'info', 'wiki', 'file', 'change')
         @getPost { file: data.file }, (err,post) ->
-            if post then post.set(data) else post = new env.blog.models.post data
+            if post then post.set(data) else post = new env.blog.models.post _.extend({created: new Date().getTime()}, data)
             post.flush helpers.cbc callback
     
     parseFile: (file) ->
@@ -173,7 +194,6 @@ Wiki = Backbone.Model.extend4000
         catch error
             return undefined
 
-
         # find the first line of a file and execute it
         match = data.match(/^(.*)\n/)
         if match then match = match[1] else return { data: data, extraopts: {} }
@@ -181,11 +201,10 @@ Wiki = Backbone.Model.extend4000
             manualOptions = eval("x=" + match)
             data = data.replace(/^.*\n/,'')
         catch error
-            manualOptions = {}        
+            manualOptions = {}  
 
         # generate basic options
         options =
-            created: new Date().getTime()
             modified: stat.mtime.getTime()
             file: file
             link: file
@@ -193,8 +212,11 @@ Wiki = Backbone.Model.extend4000
             body: data
             tags: []
 
-        options = _.extend options,manualOptions
-        
+        options = _.extend options, manualOptions
+
+        # write options JSON back to the file
+        # sooo boring... I'll do this later
+
         # apply path as tags
         pathtags = file.split('/')
         pathtags.pop()
@@ -215,8 +237,18 @@ initRoutes = (callback) ->
     env.app.get '/', (req,res) ->
       res.render 'index', { title: 'lesh.sysphere.org' }
 
-    serveposts = (posts,res) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers } 
 
+    parseTagsString = (tags) ->
+        if not tags then return [ [], [] ]
+        tags = "+" + tags
+        tags = tags.replace('+', ' +')
+        tags = tags.replace('-', ' -')
+        tags_yes = _.map tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
+        tags_no = _.map tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
+
+        return [ tags_yes, tags_no ]
+
+    serveposts = (posts,res) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers } 
 
     env.app.get '/blog', (req,res) ->
         posts = []
@@ -239,36 +271,45 @@ initRoutes = (callback) ->
         env.wiki.getPosts { file: req.params[0] }, (post) ->
             if post then posts.push post.output() else
                 if posts.length then serveposts posts, res else res.end('404')
-
-    env.app.get '/tag/:tags*', (req,res) ->
+                    
+    env.app.get '/tag/:tags?*', (req,res) ->
         posts = []
-        outputtype = req.params[1]
         
-        tags = '+' + req.params.tags
+        [ tags_yes, tags_no ] = parseTagsString req.params.tags 
 
-        tags = tags.replace('+', ' +')
-        tags = tags.replace('-', ' -')
-        tags_yes = _.map tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
-        tags_no = _.map tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
-
-        # here we add forbidden tags for this user / filter depending on permission
-                        
-        query = { "$and" : [] }
-
-        _.map tags_yes, (tag) ->
-            ret = {}; ret['tags.' + tag] = true
-            query["$and"].push ret
-
-        _.map tags_no, (tag) ->
-            ret = {}; ret['tags.' + tag] = { "$exists" : false }
-            query["$and"].push ret
-
-        
-        console.log(JSON.stringify(query))
-        env.wiki.getPosts query, (post) -> 
+        # here we add forbidden tags for this user / filter depending on permission                        
+        env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) -> 
             if post then posts.push post.output(tags_yes) else serveposts posts, res
         
-    
+    env.app.get '/posts', (req,res) ->
+        env.wiki.getPosts {}, (post) ->
+            if post
+                console.log('sending',post.attributes)
+                res.write JSON.stringify(post.output()) + "\n"
+            else
+                res.end()
+    callback()
+    env.app.get '/tagcloud/:tags?*', (req,res) ->
+        posts = []
+        tagdata = {}
+
+        [ tags_yes, tags_no ] = parseTagsString req.params.tags
+ 
+        # here we add forbidden tags for this user / filter depending on permission                        
+        env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) -> 
+            if not post
+                tagdata = helpers.scaleDict(tagdata)
+                console.log "tagdata", tagdata
+                res.render 'tagcloud', { title: 'tagcloud', posts: posts, helpers: helpers, tags: tagdata, currenturl: req.params.tags or "" }
+                return
+                
+            posts.push post.output(tags_yes)
+
+            posttags = post.get('tags')
+            _.map tags_yes, (tag) -> delete posttags[tag]
+            helpers.countExtend tagdata, posttags
+            
+        
     env.app.get '/posts', (req,res) ->
         env.wiki.getPosts {}, (post) ->
             if post

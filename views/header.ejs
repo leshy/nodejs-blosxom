@@ -1,0 +1,14 @@
+<div class='mainheader'>
+
+<% links = [ '/', '/blog', '/projects', '/tagcloud', '/tree' ] %>
+
+<% for(var i=0; i<links.length; i++) { %>
+<a href="<%= links[i] %>/"><span class='header local blacklink'><%= links[i] %></span></a>
+<% } %>
+
+<span class='header local'>&nbsp;</span>
+<a href="/"><span class='header external'>contact</span></a>
+<a href="https://github.com/leshy"><span class='header external'>github</span></a>
+<a href="http://last.fm/user/lesh"><span class='header external'>last.fm</span></a>
+</div>
+

@@ -1,0 +1,11 @@
+<% layout('layout') -%>
+<%-partial('header') -%>
+
+
+<div class='tagcloud'>
+  <% for(var tag in tags) { %>      
+  <span class='tag' style='font-size:<%=tags[tag]%>em'><a href="<%=currenturl%>+<%=tag%>"><%=tag%></a></span>
+  <% } %>
+</div>
+
+<%-partial('post',posts)%>

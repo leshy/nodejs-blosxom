@@ -61,7 +61,7 @@
         text = text.red;
       }
       if (tags.error && _.keys(data).length) {
-        json = " " + JSON.stringify(msg.data);
+        json = " " + JSON.stringify(tags.error);
       } else {
         json = "";
       }
@@ -250,6 +250,69 @@
         }
       }, callback);
     },
+    getPostsByTags: function(search, tags_yes, tags_no, callback) {
+      var query;
+      if (search == null) {
+        search = {};
+      }
+      if (tags_yes == null) {
+        tags_yes = [];
+      }
+      if (tags_no == null) {
+        tags_no = [];
+      }
+      query = {};
+      _.map(tags_yes, function(tag) {
+        var ret;
+        ret = {};
+        ret['tags.' + tag] = true;
+        return query = ret;
+      });
+      _.map(tags_no, function(tag) {
+        var ret;
+        ret = {};
+        ret['tags.' + tag] = {
+          "$exists": false
+        };
+        if (query) {
+          return query = {
+            "$and": [query, ret]
+          };
+        } else {
+          return query = ret;
+        }
+      });
+      return env.blog.findModels(_.extend(search, query), {
+        sort: {
+          created: -1
+        }
+      }, callback);
+    },
+    getTags: function(search, tags_yes, tags_no, callback) {
+      var tagdata;
+      if (search == null) {
+        search = {};
+      }
+      if (tags_yes == null) {
+        tags_yes = [];
+      }
+      if (tags_no == null) {
+        tags_no = [];
+      }
+      tagdata = {};
+      return this.getPostsByTags({}, tags_yes, tags_no, function(post) {
+        var posttags;
+        if (!post) {
+          callback(helpers.scaleDict(tagdata));
+          return;
+        }
+        posttags = post.get('tags');
+        _.map(tags_yes, function(tag) {
+          return delete posttags[tag];
+        });
+        return helpers.countExtend(tagdata, posttags);
+      });
+    },
     pingFile: function(file, callback) {
       var _this = this;
       return this.getPost({
@@ -290,7 +353,9 @@
         if (post) {
           post.set(data);
         } else {
-          post = new env.blog.models.post(data);
+          post = new env.blog.models.post(_.extend({
+            created: new Date().getTime()
+          }, data));
         }
         return post.flush(helpers.cbc(callback));
       });
@@ -319,7 +384,6 @@
         manualOptions = {};
       }
       options = {
-        created: new Date().getTime(),
         modified: stat.mtime.getTime(),
         file: file,
         link: file,
@@ -341,12 +405,28 @@
   });
 
   initRoutes = function(callback) {
-    var serveposts;
+    var parseTagsString, serveposts;
     env.app.get('/', function(req, res) {
       return res.render('index', {
         title: 'lesh.sysphere.org'
       });
     });
+    parseTagsString = function(tags) {
+      var tags_no, tags_yes;
+      if (!tags) {
+        return [[], []];
+      }
+      tags = "+" + tags;
+      tags = tags.replace('+', ' +');
+      tags = tags.replace('-', ' -');
+      tags_yes = _.map(tags.match(/(?:\+)(\w*)\w/g), function(tag) {
+        return tag.replace('+', '');
+      });
+      tags_no = _.map(tags.match(/\-(\w*)\w/g), function(tag) {
+        return tag.replace('-', '');
+      });
+      return [tags_yes, tags_no];
+    };
     serveposts = function(posts, res) {
       return res.render('blog', {
         title: 'blog',
@@ -412,43 +492,54 @@
         }
       });
     });
-    env.app.get('/tag/:tags*', function(req, res) {
-      var outputtype, posts, query, tags, tags_no, tags_yes;
+    env.app.get('/tag/:tags?*', function(req, res) {
+      var posts, tags_no, tags_yes, _ref;
       posts = [];
-      outputtype = req.params[1];
-      tags = '+' + req.params.tags;
-      tags = tags.replace('+', ' +');
-      tags = tags.replace('-', ' -');
-      tags_yes = _.map(tags.match(/(?:\+)(\w*)\w/g), function(tag) {
-        return tag.replace('+', '');
-      });
-      tags_no = _.map(tags.match(/\-(\w*)\w/g), function(tag) {
-        return tag.replace('-', '');
-      });
-      query = {
-        "$and": []
-      };
-      _.map(tags_yes, function(tag) {
-        var ret;
-        ret = {};
-        ret['tags.' + tag] = true;
-        return query["$and"].push(ret);
-      });
-      _.map(tags_no, function(tag) {
-        var ret;
-        ret = {};
-        ret['tags.' + tag] = {
-          "$exists": false
-        };
-        return query["$and"].push(ret);
-      });
-      console.log(JSON.stringify(query));
-      return env.wiki.getPosts(query, function(post) {
+      _ref = parseTagsString(req.params.tags), tags_yes = _ref[0], tags_no = _ref[1];
+      return env.wiki.getPostsByTags({}, tags_yes, tags_no, function(post) {
         if (post) {
           return posts.push(post.output(tags_yes));
         } else {
           return serveposts(posts, res);
         }
+      });
+    });
+    env.app.get('/posts', function(req, res) {
+      return env.wiki.getPosts({}, function(post) {
+        if (post) {
+          console.log('sending', post.attributes);
+          return res.write(JSON.stringify(post.output()) + "\n");
+        } else {
+          return res.end();
+        }
+      });
+    });
+    callback();
+    env.app.get('/tagcloud/:tags?*', function(req, res) {
+      var posts, tagdata, tags_no, tags_yes, _ref;
+      posts = [];
+      tagdata = {};
+      _ref = parseTagsString(req.params.tags), tags_yes = _ref[0], tags_no = _ref[1];
+      return env.wiki.getPostsByTags({}, tags_yes, tags_no, function(post) {
+        var posttags;
+        if (!post) {
+          tagdata = helpers.scaleDict(tagdata);
+          console.log("tagdata", tagdata);
+          res.render('tagcloud', {
+            title: 'tagcloud',
+            posts: posts,
+            helpers: helpers,
+            tags: tagdata,
+            currenturl: req.params.tags || ""
+          });
+          return;
+        }
+        posts.push(post.output(tags_yes));
+        posttags = post.get('tags');
+        _.map(tags_yes, function(tag) {
+          return delete posttags[tag];
+        });
+        return helpers.countExtend(tagdata, posttags);
       });
     });
     env.app.get('/posts', function(req, res) {
