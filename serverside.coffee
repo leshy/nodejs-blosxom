@@ -17,14 +17,19 @@ decorators = require 'decorators'
 decorate = decorators.decorate
 
 hound = require 'hound'
-rss = require 'rss'
+xml = require 'xml'
 
 pagedown = require 'pagedown'
 converter = new pagedown.Converter()
 
 env = {}
 
-settings = postsfolder: "posts"
+settings =
+    postsfolder: "posts"
+    privatetags: [ "private", "family", "ticker" ]
+    users:
+        family: { key: 'dobardan', tags: [ "family", "ticker" ] }
+        self: { key: 'self', tags: [ "private", "family", "ticker" ] }
 
 ejslocals.ejs.filters.prettyDate = (obj) -> 
     helpers.prettyDate(obj)
@@ -58,6 +63,7 @@ initCollections = (callback) ->
     env.blog = new collections.MongoCollection db: env.db, collection: 'blog'
     env.post = env.blog.defineModel 'post',
         output: (ignoretags) ->
+            if not @attributes.tags then return { tags: []}
             id: @attributes.id
             created: @attributes.created
             modified: @attributes.modified
@@ -183,7 +189,7 @@ Wiki = Backbone.Model.extend4000
         if not data then helpers.cbc callback, true; console.log "NO DATA"; return
         env.log('updating entry ' + file, { file: file }, 'info', 'wiki', 'file', 'change')
         @getPost { file: data.file }, (err,post) ->
-            if post then post.set(data) else post = new env.blog.models.post _.extend({created: new Date().getTime()}, data)
+            if post then delete data['created']; post.set(data) else post = new env.blog.models.post(data)
             post.flush helpers.cbc callback
     
     parseFile: (file) ->
@@ -205,6 +211,7 @@ Wiki = Backbone.Model.extend4000
 
         # generate basic options
         options =
+            created: stat.ctime.getTime()
             modified: stat.mtime.getTime()
             file: file
             link: file
@@ -257,11 +264,11 @@ initRoutes = (callback) ->
 
     env.app.get '/projects', (req,res) ->
         posts = []
-        env.wiki.getPosts { "tags.project": true, "tags.mainpage": true }, (post) ->
+        env.wiki.getPostsByTags {}, [ 'project', 'mainpage'], [], (post) -> 
             if post
-                posts.push post.output(["project","mainpage"])
+                posts.push post.output(['project','mainpage'])
             else
-                res.render 'projects', { title: 'projects', posts: posts, helpers: helpers } 
+                res.render 'blog', { title: 'projects', posts: posts, helpers: helpers } 
 
     env.app.get '/article/*', (req,res) ->
         serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
@@ -272,7 +279,7 @@ initRoutes = (callback) ->
             if post then posts.push post.output() else
                 if posts.length then serveposts posts, res else res.end('404')
                     
-    env.app.get '/tag/:tags?*', (req,res) ->
+    env.app.get '/:key?/tag/:tags?/:type?', (req,res) ->
         posts = []
         
         [ tags_yes, tags_no ] = parseTagsString req.params.tags 
@@ -280,7 +287,12 @@ initRoutes = (callback) ->
         # here we add forbidden tags for this user / filter depending on permission                        
         env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) -> 
             if post then posts.push post.output(tags_yes) else serveposts posts, res
+
+    env.app.get '/:key?/:query/:tags?/:type?', (req,res) ->
+        [ tags_yes, tags_no ] = parseTagsString req.params.tags
         
+        
+                        
     env.app.get '/posts', (req,res) ->
         env.wiki.getPosts {}, (post) ->
             if post
@@ -289,18 +301,20 @@ initRoutes = (callback) ->
             else
                 res.end()
     callback()
-    env.app.get '/tagcloud/:tags?*', (req,res) ->
+    env.app.get '/:key?/tagcloud/:tags?/:type?', (req,res) ->
         posts = []
         tagdata = {}
-
+        
         [ tags_yes, tags_no ] = parseTagsString req.params.tags
- 
+        
+        console.log 'key is', req.params.key, 'type is', req.params.type
+        
         # here we add forbidden tags for this user / filter depending on permission                        
         env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) -> 
             if not post
                 tagdata = helpers.scaleDict(tagdata)
                 console.log "tagdata", tagdata
-                res.render 'tagcloud', { title: 'tagcloud', posts: posts, helpers: helpers, tags: tagdata, currenturl: req.params.tags or "" }
+                res.render 'tagcloud', { title: 'tagcloud', posts: posts, _:_, helpers: helpers, tags: tagdata, currenturl: req.params.tags or "" }
                 return
                 
             posts.push post.output(tags_yes)
@@ -322,10 +336,10 @@ initRoutes = (callback) ->
 
 initRss = (callback) ->
     env.rssfeed = new rss
-            title: 'lesh blog',
-            description: '2blog',
+            title: 'lesh.sysphere.org blog',
+            description: 'blog',
             feed_url: 'http://lesh.sysphere.org/blog/rss.xml',
-            site_url: 'http://lesh.sysphere.org',
+            site_url: 'http://lesh.sysphere.org/blog',
             author: 'lesh'
 
     callback()

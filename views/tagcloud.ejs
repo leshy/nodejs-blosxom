@@ -2,10 +2,29 @@
 <%-partial('header') -%>
 
 
+<% if (!helpers.isEmpty(tags)) { %>
 <div class='tagcloud'>
-  <% for(var tag in tags) { %>      
-  <span class='tag' style='font-size:<%=tags[tag]%>em'><a href="<%=currenturl%>+<%=tag%>"><%=tag%></a></span>
-  <% } %>
-</div>
 
-<%-partial('post',posts)%>
+  <div class='header'>
+    <span class='title'>
+      <%=currenturl%>
+    </span>
+  </div>
+
+  <div class='body'>
+    <% for(var tag in tags) { %>      
+    <span class='tag' style='font-size:<%=tags[tag]%>em'>
+      <a href="<%=currenturl%>+<%=tag%>"><%=tag%></a><a href="<%=currenturl%>-<%=tag%>"> <font color="#bb0000">-</font></a>
+    </span>
+    <% } %>
+  </div>
+
+</div>
+<% } %>
+
+
+
+<%-partial('posts')%>
+
+
+
