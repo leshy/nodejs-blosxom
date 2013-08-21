@@ -4,7 +4,7 @@
     <% if (post.tags.length > 0) { %>
     <span class='tags'>
     <% for(var i=0; i<post.tags.length; i++) { %>
-            <a href='/tag/<%= post.tags[i] %>'><%= post.tags[i] %></a><% if (post.tags.length - 1 > i) { %>,<% } %>
+            <a href='/tagcloud/<%= post.tags[i] %>'><%= post.tags[i] %></a><% if (post.tags.length - 1 > i) { %>,<% } %>
             
     <% } %>
     </span>

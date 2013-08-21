@@ -421,7 +421,7 @@
   });
 
   initRoutes = function(callback) {
-    var parseTagsString, serveposts;
+    var parseTagsString, serve, serveposts;
     env.app.get('/', function(req, res) {
       return res.render('index', {
         title: 'lesh.sysphere.org'
@@ -450,6 +450,19 @@
         helpers: helpers
       });
     };
+    serve = function(posts, output_type, res) {
+      if (output_type === 'rss') {
+        return serveRss(posts);
+      }
+      if (output_type === 'txt') {
+        return serveTxt(posts);
+      }
+      return res.render(output_type, {
+        posts: posts,
+        helpers: helpers,
+        title: 'lesh.sysphere.org/' + output_type
+      });
+    };
     env.app.get('/blog', function(req, res) {
       var posts;
       posts = [];
@@ -466,9 +479,9 @@
     env.app.get('/projects', function(req, res) {
       var posts;
       posts = [];
-      return env.wiki.getPostsByTags({}, ['project', 'mainpage'], [], function(post) {
+      return env.wiki.getPostsByTags({}, ['project', 'intro'], [], function(post) {
         if (post) {
-          return posts.push(post.output(['project', 'mainpage']));
+          return posts.push(post.output(['project', 'intro']));
         } else {
           return res.render('blog', {
             title: 'projects',
@@ -479,7 +492,7 @@
       });
     });
     env.app.get('/article/*', function(req, res) {
-      var posts, serve;
+      var posts;
       serve = function(posts) {
         return res.render('blog', {
           title: 'blog',
@@ -504,22 +517,6 @@
           }
         }
       });
-    });
-    env.app.get('/:key?/tag/:tags?/:type?', function(req, res) {
-      var posts, tags_no, tags_yes, _ref;
-      posts = [];
-      _ref = parseTagsString(req.params.tags), tags_yes = _ref[0], tags_no = _ref[1];
-      return env.wiki.getPostsByTags({}, tags_yes, tags_no, function(post) {
-        if (post) {
-          return posts.push(post.output(tags_yes));
-        } else {
-          return serveposts(posts, res);
-        }
-      });
-    });
-    env.app.get('/:key?/:query/:tags?/:type?', function(req, res) {
-      var tags_no, tags_yes, _ref;
-      return _ref = parseTagsString(req.params.tags), tags_yes = _ref[0], tags_no = _ref[1], _ref;
     });
     env.app.get('/posts', function(req, res) {
       return env.wiki.getPosts({}, function(post) {
@@ -575,13 +572,6 @@
   };
 
   initRss = function(callback) {
-    env.rssfeed = new rss({
-      title: 'lesh.sysphere.org blog',
-      description: 'blog',
-      feed_url: 'http://lesh.sysphere.org/blog/rss.xml',
-      site_url: 'http://lesh.sysphere.org/blog',
-      author: 'lesh'
-    });
     return callback();
   };
 

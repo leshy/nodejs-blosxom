@@ -1,5 +1,12 @@
 <% if (posts.length) { %>
   <%-partial('post',posts)%>
 <% } else { %>
-  <div class="tagcloud"><center>no matches</center></div>
+  <div class="box"><div class="body">
+            <center>
+              <!--<span class='superbiggie code'>¯\_(ツ)_/¯</span> -->
+              <img width="400px" src="/img/dunno.png">
+              <br><br>
+              no matching posts for your crazy weird tag combination
+            </center>
+  </div></div>
 <% } %>

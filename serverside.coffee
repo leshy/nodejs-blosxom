@@ -239,23 +239,28 @@ Wiki = Backbone.Model.extend4000
         return options
 
 
-
 initRoutes = (callback) ->
     env.app.get '/', (req,res) ->
       res.render 'index', { title: 'lesh.sysphere.org' }
 
-
     parseTagsString = (tags) ->
         if not tags then return [ [], [] ]
+        
         tags = "+" + tags
         tags = tags.replace('+', ' +')
         tags = tags.replace('-', ' -')
         tags_yes = _.map tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
         tags_no = _.map tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
-
-        return [ tags_yes, tags_no ]
+        
+        [ tags_yes, tags_no ]
 
     serveposts = (posts,res) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers } 
+
+    serve = (posts,output_type,res) ->
+        if output_type is 'rss' then return serveRss(posts)
+        if output_type is 'txt' then return serveTxt(posts)
+
+        res.render output_type, posts: posts, helpers: helpers, title: 'lesh.sysphere.org/' + output_type
 
     env.app.get '/blog', (req,res) ->
         posts = []
@@ -264,9 +269,9 @@ initRoutes = (callback) ->
 
     env.app.get '/projects', (req,res) ->
         posts = []
-        env.wiki.getPostsByTags {}, [ 'project', 'mainpage'], [], (post) -> 
+        env.wiki.getPostsByTags {}, [ 'project', 'intro'], [], (post) -> 
             if post
-                posts.push post.output(['project','mainpage'])
+                posts.push post.output(['project','intro'])
             else
                 res.render 'blog', { title: 'projects', posts: posts, helpers: helpers } 
 
@@ -279,17 +284,6 @@ initRoutes = (callback) ->
             if post then posts.push post.output() else
                 if posts.length then serveposts posts, res else res.end('404')
                     
-    env.app.get '/:key?/tag/:tags?/:type?', (req,res) ->
-        posts = []
-        
-        [ tags_yes, tags_no ] = parseTagsString req.params.tags 
-
-        # here we add forbidden tags for this user / filter depending on permission                        
-        env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) -> 
-            if post then posts.push post.output(tags_yes) else serveposts posts, res
-
-    env.app.get '/:key?/:query/:tags?/:type?', (req,res) ->
-        [ tags_yes, tags_no ] = parseTagsString req.params.tags
         
         
                         
@@ -335,13 +329,6 @@ initRoutes = (callback) ->
 
 
 initRss = (callback) ->
-    env.rssfeed = new rss
-            title: 'lesh.sysphere.org blog',
-            description: 'blog',
-            feed_url: 'http://lesh.sysphere.org/blog/rss.xml',
-            site_url: 'http://lesh.sysphere.org/blog',
-            author: 'lesh'
-
     callback()
     
 initWiki = (callback) ->

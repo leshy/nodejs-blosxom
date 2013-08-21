@@ -2,15 +2,17 @@
 <%-partial('header') -%>
 
 
-<% if (!helpers.isEmpty(tags)) { %>
 <div class='tagcloud'>
 
   <div class='header'>
     <span class='title'>
-      <%=currenturl%>
+      <% if (currenturl) { %>
+      <span class="minititle">selected tags:</span> <%=currenturl%>
+      <% } %>
     </span>
   </div>
 
+  <% if (!helpers.isEmpty(tags)) { %>
   <div class='body'>
     <% for(var tag in tags) { %>      
     <span class='tag' style='font-size:<%=tags[tag]%>em'>
@@ -18,9 +20,8 @@
     </span>
     <% } %>
   </div>
-
+  <% } %>
 </div>
-<% } %>
 
 
 
