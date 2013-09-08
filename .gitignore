@@ -1,4 +1,6 @@
 node_modules
-posts/*
+posts
+posts_
 settings.js
 settings.coffee
+
