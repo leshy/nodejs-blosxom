@@ -345,6 +345,9 @@
     },
     fileChanged: function(file, callback) {
       var data;
+      if (file.indexOf('.git') !== -1) {
+        return;
+      }
       data = this.parseFile(file);
       if (!data) {
         helpers.cbc(callback, true);

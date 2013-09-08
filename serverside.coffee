@@ -193,6 +193,7 @@ Wiki = Backbone.Model.extend4000
                 callback "can't read file stat"
 
     fileChanged: (file,callback) ->
+        if file.indexOf('.git') isnt -1 then return
         data = @parseFile(file)
         if not data then helpers.cbc callback, true; console.log "NO DATA"; return
         env.log('updating entry ' + file, { file: file }, 'info', 'wiki', 'file', 'change')
