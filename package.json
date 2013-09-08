@@ -8,14 +8,19 @@
     "email": "lesh@sysphere.org"
   },
   "dependencies": {
-    "comm": "git://github.com/leshy/nodejs-comm5.git",
-    "logger": "git://github.com/leshy/comm5-logger.git",
+    "backbone4000": "git://github.com/leshy/backbone4000.git",
+    "helpers": "git://github.com/leshy/nodejs-helpers.git",
+    "validator2-extras": "git://github.com/leshy/nodejs-validator2-extras.git",
+    "decorators": "git://github.com/leshy/nodejs-decorators.git",
     "collections": "git://github.com/leshy/collections.git",
-    "hound": "hound >= 1.0.4",
+    "hound": "~1.0.4",
     "rss": "0.0.4",
-    "zeptoify": "~1.0.0rc1",
-    "browserify-jquery": "~1.6.3",
-    "jquery": "~1.8.3"
+    "xml": "0.0.7",
+    "pagedown": "~1.1.0",
+    "async": "~0.2.9",
+    "ejs-locals": "~1.0.2",
+    "ejs": "~0.8.4",
+    "express": "~3.0.3"
   },
   "main": "index",
   "engines": {
