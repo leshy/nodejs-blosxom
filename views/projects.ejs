@@ -1,15 +1,4 @@
 <% layout('layout') -%>
-<div class='mainheader'>
-<span class='header local blacklink'>/</span>
-<a href="/blog"><span class='header local blacklink'>/blog</a></span></a>
-<span class='header local blacklink selected'>/projects</span>
-<span class='header local blacklink'>/tagcloud</span>
-<span class='header local blacklink'>/folders</span>
-<span class='header local blacklink'>/images</span>
-<span class='header local'>&nbsp;</span>
-<a href="/"><span class='header external'>contact</span></a>
-<a href="https://github.com/leshy"><span class='header external'>github</span></a>
-<a href="http://last.fm/user/lesh"><span class='header external'>last.fm</span></a>
-</div>
-
+<%-partial('header') %>
 <%-partial('post',posts)%>
+

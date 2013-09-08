@@ -24,12 +24,21 @@ converter = new pagedown.Converter()
 
 env = {}
 
+rfc822 = require './rfc822'
+
 settings =
     postsfolder: "posts"
-    privatetags: [ "private", "family", "ticker" ]
+    privatetags: [ "secret_tag", "secret_tag2" ]
     users:
-        family: { key: 'dobardan', tags: [ "family", "ticker" ] }
-        self: { key: 'self', tags: [ "private", "family", "ticker" ] }
+        some_key: { user: 'username', tags: [ "secret_tag" ] }
+
+settings = helpers.extend require('./settings').settings # recursive extend 
+
+# switch tag arrays to tag dictionaries
+settings.privatetags = helpers.arrayToDict settings.privatetags
+_.map settings.users, (userdata,key) -> console.log key, userdata; userdata.tags = helpers.arrayToDict userdata.tags
+
+console.log "setings:", JSON.stringify(settings)
 
 ejslocals.ejs.filters.prettyDate = (obj) -> 
     helpers.prettyDate(obj)
@@ -155,7 +164,12 @@ Wiki = Backbone.Model.extend4000
 
     getPostsByTags: (search = {}, tags_yes=[], tags_no=[], callback) ->
         query = {}
-        
+
+        if tags_yes.constructor isnt Array then tags_yes = _.keys(tags_yes)
+        if tags_no.constructor isnt Array then tags_no = _.keys(tags_no)
+
+        console.log "rendering tags: ", tags_yes, tags_no
+            
         _.map tags_yes, (tag) ->
             ret = {}; ret['tags.' + tag] = true
             query = ret
@@ -163,16 +177,10 @@ Wiki = Backbone.Model.extend4000
         _.map tags_no, (tag) ->
             ret = {}; ret['tags.' + tag] = { "$exists" : false }
             if query then query = { "$and" : [query, ret] } else query = ret
+
+        #console.log "query is:", JSON.stringify(query)
         
         env.blog.findModels _.extend( search, query ), {sort: {created: -1}}, callback
-
-    getTags: (search = {}, tags_yes=[],tags_no=[],callback) ->
-        tagdata = {}
-        @getPostsByTags {}, tags_yes, tags_no, (post) ->
-            if not post then callback helpers.scaleDict tagdata; return
-            posttags = post.get('tags')
-            _.map tags_yes, (tag) -> delete posttags[tag]
-            helpers.countExtend tagdata, posttags
         
     pingFile: (file,callback) ->
         @getPost {file: file}, (err,post) =>
@@ -244,89 +252,105 @@ initRoutes = (callback) ->
       res.render 'index', { title: 'lesh.sysphere.org' }
 
     parseTagsString = (tags) ->
-        if not tags then return [ [], [] ]
+        if not tags then return [ {}, {} ]
         
         tags = "+" + tags
         tags = tags.replace('+', ' +')
         tags = tags.replace('-', ' -')
-        tags_yes = _.map tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
-        tags_no = _.map tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
+        tags_yes = helpers.mapToDict tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
+        tags_no = helpers.mapToDict tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
         
         [ tags_yes, tags_no ]
 
     serveposts = (posts,res) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers } 
 
-    serve = (posts,output_type,res) ->
-        if output_type is 'rss' then return serveRss(posts)
-        if output_type is 'txt' then return serveTxt(posts)
+    serveRss = (posts,res,metadata={}) ->
 
-        res.render output_type, posts: posts, helpers: helpers, title: 'lesh.sysphere.org/' + output_type
+        preparePost = (post) ->
+            { item: [
+                { title: post.title }
+                { link: 'http://lesh.sysphere.org/article/' + post.link }
+                { description: post.body }
+                { author: 'lesh@sysphere.org (lesh)' }
+                { category: post.tags }
+                { guid: 'http://lesh.sysphere.org/article/' + post.link }
+                { pubDate: rfc822.formatDate(new Date(post.created)) }
+            ]}
 
-    env.app.get '/blog', (req,res) ->
+
+        channel = [ { title: metadata.title or 'lesh blog' }
+            { link: 'http://lesh.sysphere.org/blog' }
+            { language: 'en-us' }
+            { description: metadata.description or 'lesh blog' }
+            ]
+
+        root = rss: [
+            { _attr: { version: "2.0" }},
+            { channel: channel }
+            ]
+            
+
+        _.map posts, (post) ->
+            channel.push preparePost(post)
+
+        res.header('Content-Type', 'application/xhtml+xml')
+        res.end xml( root )
+            
+
+
+    servetags = (tags_yes={}, tags_no={}, key="public", outputType, res) -> 
         posts = []
-        env.wiki.getPosts { "tags.blog": true }, (post) ->
-            if post then posts.push post.output(['blog']) else serveposts posts, res
+        tagdata = {}
 
-    env.app.get '/projects', (req,res) ->
-        posts = []
-        env.wiki.getPostsByTags {}, [ 'project', 'intro'], [], (post) -> 
+        
+        if tags_yes.constructor isnt Object then tags_yes = helpers.arrayToDict(tags_yes)
+        if tags_no.constructor isnt Object then tags_no = helpers.arrayToDict(tags_no)
+        _.extend tags_no, if userdata = settings.users[key] then _.omit(settings.privatetags,_.keys(userdata.tags)) else settings.privatetags
+        
+        console.log "key:", key
+                
+        env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) ->
             if post
-                posts.push post.output(['project','intro'])
+                posts.push post.output(tags_yes)
+                if outputType is 'tagcloud'
+                    posttags = post.get('tags')
+                    _.map tags_yes, (tag) -> delete posttags[tag]
+                    
+                helpers.countExtend tagdata, posttags
             else
-                res.render 'blog', { title: 'projects', posts: posts, helpers: helpers } 
+                if outputType is 'tagcloud' then tagdata = helpers.scaleDict(tagdata)
+                if outputType is 'rss' then return serveRss(posts,res)
+                if outputType is 'txt' then return serveTxt(posts,res)
+                console.log "rendering #{ outputType }"
+                res.render outputType, key: key, posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, title: outputType, currenturl: "", selected: outputType, tags: tagdata
+                
+    env.app.get '/:key?/blog/:type?', (req,res) ->
+        if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'blog'
+        servetags ['blog'],[], req.params.key, outputType, res
 
-    env.app.get '/article/*', (req,res) ->
+    env.app.get '/:key?/projects', (req,res) ->
+        if req.params.type is 'rss' then outputType = 'rss' else outputType = 'projects'
+        servetags ['project','intro'],[], req.params.key, outputType, res
+
+    env.app.get '/:key?/tagcloud/:tags?/:type?', (req,res) ->
+        if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'tagcloud'        
+        [ tags_yes, tags_no ] = parseTagsString req.params.tags
+        servetags tags_yes, tags_no, req.params.key, outputType, res
+
+
+    env.app.get ':key?/article/*', (req,res) ->
+        
+        return res.end('403') # disabled for now, need to implement security
+        
         serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
         posts = []
         console.log('looking for', { file: req.params[0] })
         
         env.wiki.getPosts { file: req.params[0] }, (post) ->
             if post then posts.push post.output() else
-                if posts.length then serveposts posts, res else res.end('404')
-                    
-        
-        
-                        
-    env.app.get '/posts', (req,res) ->
-        env.wiki.getPosts {}, (post) ->
-            if post
-                console.log('sending',post.attributes)
-                res.write JSON.stringify(post.output()) + "\n"
-            else
-                res.end()
-    callback()
-    env.app.get '/:key?/tagcloud/:tags?/:type?', (req,res) ->
-        posts = []
-        tagdata = {}
-        
-        [ tags_yes, tags_no ] = parseTagsString req.params.tags
-        
-        console.log 'key is', req.params.key, 'type is', req.params.type
-        
-        # here we add forbidden tags for this user / filter depending on permission                        
-        env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) -> 
-            if not post
-                tagdata = helpers.scaleDict(tagdata)
-                console.log "tagdata", tagdata
-                res.render 'tagcloud', { title: 'tagcloud', posts: posts, _:_, helpers: helpers, tags: tagdata, currenturl: req.params.tags or "" }
-                return
-                
-            posts.push post.output(tags_yes)
-
-            posttags = post.get('tags')
-            _.map tags_yes, (tag) -> delete posttags[tag]
-            helpers.countExtend tagdata, posttags
-            
-        
-    env.app.get '/posts', (req,res) ->
-        env.wiki.getPosts {}, (post) ->
-            if post
-                console.log('sending',post.attributes)
-                res.write JSON.stringify(post.output()) + "\n"
-            else
-                res.end()
-    callback()
-
+                if posts.length then serveposts posts, res else res.end('404')        
+                            
+                                                            
 
 initRss = (callback) ->
     callback()

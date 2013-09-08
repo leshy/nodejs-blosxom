@@ -1,14 +1,37 @@
 <div class='mainheader'>
 
-<% links = [ '/', '/blog', '/projects', '/tagcloud' ] %>
+<% LocalLinks = [ 'blog', 'projects', 'tagcloud' ] %>
 
-<% for(var i=0; i<links.length; i++) { %>
-<a href="<%= links[i] %>/"><span class='header local blacklink'><%= links[i] %></span></a>
+
+<a href="/"> <span class="header local blacklink"> / </span> </a>
+
+<%
+for(var i=0; i<LocalLinks.length; i++) {
+if ( selected == LocalLinks[i]) 
+{ classes = 'header local blacklink selected' } 
+else
+{ classes = 'header local blacklink' }
+%>
+
+
+<% if (key == 'public') { %>
+<a href="/<%= LocalLinks[i] %>/">
+<% } else { %>
+<a href="/<%= key %>/<%= LocalLinks[i] %>/">
+<% } %>
+  <span class="<%= classes %>">
+    <%= LocalLinks[i] %>
+  </span>
+</a>
+
 <% } %>
 
-<span class='header local'>&nbsp;</span>
+<span class='gimmespace'>&nbsp;</span>
+
 <a href="/"><span class='header external'>contact</span></a>
 <a href="https://github.com/leshy"><span class='header external'>github</span></a>
 <a href="http://last.fm/user/lesh"><span class='header external'>last.fm</span></a>
+
+
 </div>
 
