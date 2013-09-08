@@ -8,6 +8,7 @@ Backbone = require 'backbone4000'
 mongodb = require 'mongodb'
 http = require 'http'
 express = require 'express'
+ejs = require 'ejs'
 ejslocals = require 'ejs-locals'
 
 collections = require 'collections/serverside'
@@ -40,8 +41,7 @@ _.map settings.users, (userdata,key) -> console.log key, userdata; userdata.tags
 
 console.log "setings:", JSON.stringify(settings)
 
-ejslocals.ejs.filters.prettyDate = (obj) -> 
-    helpers.prettyDate(obj)
+ejs.filters.prettyDate = (obj) -> helpers.prettyDate(obj)
 
 initLogger = (env,callback) ->    
     env.log = (text,data,taglist...) ->
@@ -84,9 +84,8 @@ initCollections = (callback) ->
 
 initExpress = (callback) ->
     env.app = app = express()
-            
     app.configure ->
-        app.engine 'ejs', ejslocals.render
+        app.engine 'ejs', ejslocals
         app.set 'view engine', 'ejs'
         app.set 'views', __dirname + '/views'
         app.use express.favicon()
@@ -99,10 +98,11 @@ initExpress = (callback) ->
             env.log 'web request error', { stack: err.stack }, 'error', 'http'
             res.send 500, 'BOOOM!'
 
-    env.server = http.createServer env.app
-    env.server.listen 3333
-    env.log 'http server listening', {}, 'info', 'init', 'http'
-    callback undefined, true
+        env.server = http.createServer env.app
+        env.server.listen 3333
+        env.log 'http server listening', {}, 'info', 'init', 'http'
+
+        callback undefined, true
 
 makeLogDecorator = (name) -> 
     (f,callback,args...) ->
