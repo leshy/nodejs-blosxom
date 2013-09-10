@@ -580,7 +580,6 @@
         _: _,
         title: 'lesh.sysphere.org ' + outputType,
         selected: outputType,
-        title: outputType,
         currenturl: "",
         selected: outputType,
         tags: {},

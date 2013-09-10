@@ -332,7 +332,7 @@ initRoutes = (callback) ->
         if outputType is 'txt' then return serveTxt(posts,res)
         if not outputType then outputType = 'blog'
         console.log "rendering #{ outputType }"
-        res.render outputType, _.extend({ posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, title: outputType, currenturl: "", selected: outputType, tags: {}, key: 'public' }, extraopts)
+        res.render outputType, _.extend({ posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, currenturl: "", selected: outputType, tags: {}, key: 'public' }, extraopts)
 
                                         
     env.app.get '/:key?/blog/:type?', (req,res) ->
