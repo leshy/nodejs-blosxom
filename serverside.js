@@ -549,6 +549,9 @@
           }
           return helpers.countExtend(tagdata, posttags);
         } else {
+          if (outputType === 'tagcloud') {
+            tagdata = helpers.scaleDict(tagdata);
+          }
           return serveposts(posts, outputType, res, {
             tags: tagdata,
             key: key
@@ -557,12 +560,8 @@
       });
     };
     serveposts = function(posts, outputType, res, extraopts) {
-      var tagdata;
       if (extraopts == null) {
         extraopts = {};
-      }
-      if (outputType === 'tagcloud') {
-        tagdata = helpers.scaleDict(tagdata);
       }
       if (outputType === 'rss') {
         return serveRss(posts, res);

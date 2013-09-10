@@ -14,7 +14,7 @@
 
   <% if (!helpers.isEmpty(tags)) { %>
   <div class='body'>
-    <% for(var tag in tags) { %>      
+    <% for(var tag in tags) { %>
     <span class='tag' style='font-size:<%=tags[tag]%>em'>
       <a href="<%=currenturl%>+<%=tag%>"><%=tag%></a><a href="<%=currenturl%>-<%=tag%>"> <font color="#bb0000">-</font></a>
     </span>

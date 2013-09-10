@@ -322,12 +322,12 @@ initRoutes = (callback) ->
                     
                 helpers.countExtend tagdata, posttags
             else
+                if outputType is 'tagcloud' then tagdata = helpers.scaleDict(tagdata)
                 serveposts posts, outputType, res, { tags: tagdata, key: key }
 
 
 
     serveposts = (posts,outputType,res,extraopts={}) ->
-        if outputType is 'tagcloud' then tagdata = helpers.scaleDict(tagdata)
         if outputType is 'rss' then return serveRss(posts,res)
         if outputType is 'txt' then return serveTxt(posts,res)
         if not outputType then outputType = 'blog'
