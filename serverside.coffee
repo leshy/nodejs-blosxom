@@ -130,13 +130,16 @@ Wiki = Backbone.Model.extend4000
                 stat = fs.statSync(file)
                 if stat.isDirectory() then @crawlDir file, callback
                 if stat.isFile() then helpers.cbc callback, file
-            
+                    
     checkIgnores: (f) -> if f.indexOf('.git') isnt -1 or f.indexOf('.#') isnt -1 then return false else return true # stupid for now
+
     watchDir: (dir) ->
         watcher = hound.watch(dir)
 
+        hound.ignore = (f) => @checkIgnores(f)
+
         watcher.on "create", (f,stat) =>
-            if not @checkIgnores(f) then return
+            #if not @checkIgnores(f) then return
             if stat.isFile()
                 env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
                 @fileChanged(f)
@@ -144,12 +147,12 @@ Wiki = Backbone.Model.extend4000
                 env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
                 
         watcher.on "change", (f,stat) =>
-            if not @checkIgnores(f) then return
+            #if not @checkIgnores(f) then return
             env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
             setTimeout @fileChanged(f), 500
             
         watcher.on "delete", (f,stat) =>
-            if not @checkIgnores(f) then return
+            #if not @checkIgnores(f) then return
             env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
             @delPost { file: f }
         
