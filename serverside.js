@@ -216,7 +216,7 @@
       });
     },
     checkIgnores: function(f) {
-      if (f.indexOf('.git') !== -1) {
+      if (f.indexOf('.git') !== -1 || f.indexOf('.#') !== -1) {
         return false;
       } else {
         return true;
@@ -479,7 +479,7 @@
             }, {
               author: 'lesh@sysphere.org (lesh)'
             }, {
-              category: post.tags
+              category: post.tags.join(' ')
             }, {
               guid: 'http://lesh.sysphere.org/article/' + post.link
             }, {
@@ -604,7 +604,6 @@
     });
     return env.app.get(':key?/article/*', function(req, res) {
       var posts, serve;
-      return res.end('403');
       serve = function(posts) {
         return res.render('blog', {
           title: 'blog',

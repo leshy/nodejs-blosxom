@@ -131,7 +131,7 @@ Wiki = Backbone.Model.extend4000
                 if stat.isDirectory() then @crawlDir file, callback
                 if stat.isFile() then helpers.cbc callback, file
             
-    checkIgnores: (f) -> if f.indexOf('.git') isnt -1 then return false else return true # stupid for now
+    checkIgnores: (f) -> if f.indexOf('.git') isnt -1 or f.indexOf('.#') isnt -1 then return false else return true # stupid for now
     watchDir: (dir) ->
         watcher = hound.watch(dir)
 
@@ -277,7 +277,7 @@ initRoutes = (callback) ->
                 { link: 'http://lesh.sysphere.org/article/' + post.link }
                 { description: post.body }
                 { author: 'lesh@sysphere.org (lesh)' }
-                { category: post.tags }
+                { category: post.tags.join(' ') }
                 { guid: 'http://lesh.sysphere.org/article/' + post.link }
                 { pubDate: rfc822.formatDate(new Date(post.created)) }
             ]}
@@ -343,10 +343,7 @@ initRoutes = (callback) ->
         servetags tags_yes, tags_no, req.params.key, outputType, res
 
 
-    env.app.get ':key?/article/*', (req,res) ->
-        
-        return res.end('403') # disabled for now, need to implement security
-        
+    env.app.get ':key?/article/*', (req,res) ->        
         serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
         posts = []
         console.log('looking for', { file: req.params[0] })
