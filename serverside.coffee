@@ -139,7 +139,7 @@ Wiki = Backbone.Model.extend4000
         hound.ignore = (f) => @checkIgnores(f)
 
         watcher.on "create", (f,stat) =>
-            #if not @checkIgnores(f) then return
+            if not @checkIgnores(f) then return
             if stat.isFile()
                 env.log('created file ' + f, { file: f }, 'info', 'fs', 'file', 'create')
                 @fileChanged(f)
@@ -147,12 +147,12 @@ Wiki = Backbone.Model.extend4000
                 env.log('created dir ' + f, { file: f }, 'info', 'fs', 'dir', 'create')
                 
         watcher.on "change", (f,stat) =>
-            #if not @checkIgnores(f) then return
+            if not @checkIgnores(f) then return
             env.log('file changed ' + f, { file: f }, 'info', 'fs', 'file', 'change')
             setTimeout @fileChanged(f), 500
             
         watcher.on "delete", (f,stat) =>
-            #if not @checkIgnores(f) then return
+            if not @checkIgnores(f) then return
             env.log('deleted file ' + f, { file: f }, 'info', 'fs', 'file', 'delete')
             @delPost { file: f }
         

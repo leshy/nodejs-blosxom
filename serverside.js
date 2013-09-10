@@ -230,6 +230,9 @@
         return _this.checkIgnores(f);
       };
       watcher.on("create", function(f, stat) {
+        if (!_this.checkIgnores(f)) {
+          return;
+        }
         if (stat.isFile()) {
           env.log('created file ' + f, {
             file: f
@@ -242,12 +245,18 @@
         }
       });
       watcher.on("change", function(f, stat) {
+        if (!_this.checkIgnores(f)) {
+          return;
+        }
         env.log('file changed ' + f, {
           file: f
         }, 'info', 'fs', 'file', 'change');
         return setTimeout(_this.fileChanged(f), 500);
       });
       return watcher.on("delete", function(f, stat) {
+        if (!_this.checkIgnores(f)) {
+          return;
+        }
         env.log('deleted file ' + f, {
           file: f
         }, 'info', 'fs', 'file', 'delete');
