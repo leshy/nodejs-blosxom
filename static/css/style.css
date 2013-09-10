@@ -4,6 +4,7 @@ body {
   font-size: 0.9em;
   background: url('/img/grid.png');
   background-repeat: repeat;
+  margin: 0px;
 }
 .small {
   font-size: 0.8em;
