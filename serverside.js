@@ -549,30 +549,43 @@
           }
           return helpers.countExtend(tagdata, posttags);
         } else {
-          if (outputType === 'tagcloud') {
-            tagdata = helpers.scaleDict(tagdata);
-          }
-          if (outputType === 'rss') {
-            return serveRss(posts, res);
-          }
-          if (outputType === 'txt') {
-            return serveTxt(posts, res);
-          }
-          console.log("rendering " + outputType);
-          return res.render(outputType, {
-            key: key,
-            posts: posts,
-            helpers: helpers,
-            _: _,
-            title: 'lesh.sysphere.org ' + outputType,
-            selected: outputType,
-            title: outputType,
-            currenturl: "",
-            selected: outputType,
-            tags: tagdata
+          return serveposts(posts, outputType, res, {
+            tags: tagdata,
+            key: key
           });
         }
       });
+    };
+    serveposts = function(posts, outputType, res, extraopts) {
+      var tagdata;
+      if (extraopts == null) {
+        extraopts = {};
+      }
+      if (outputType === 'tagcloud') {
+        tagdata = helpers.scaleDict(tagdata);
+      }
+      if (outputType === 'rss') {
+        return serveRss(posts, res);
+      }
+      if (outputType === 'txt') {
+        return serveTxt(posts, res);
+      }
+      if (!outputType) {
+        outputType = 'blog';
+      }
+      console.log("rendering " + outputType);
+      return res.render(outputType, _.extend({
+        posts: posts,
+        helpers: helpers,
+        _: _,
+        title: 'lesh.sysphere.org ' + outputType,
+        selected: outputType,
+        title: outputType,
+        currenturl: "",
+        selected: outputType,
+        tags: {},
+        key: 'public'
+      }, extraopts));
     };
     env.app.get('/:key?/blog/:type?', function(req, res) {
       var outputType;
@@ -622,9 +635,11 @@
           return posts.push(post.output());
         } else {
           if (posts.length) {
-            return serveposts(posts, res);
+            return serveposts(posts, 'blog', res, {
+              selected: ''
+            });
           } else {
-            return res.end('404');
+            return res.end('post not found');
           }
         }
       });

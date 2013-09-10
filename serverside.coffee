@@ -312,8 +312,7 @@ initRoutes = (callback) ->
         if tags_no.constructor isnt Object then tags_no = helpers.arrayToDict(tags_no)
         _.extend tags_no, if userdata = settings.users[key] then _.omit(settings.privatetags,_.keys(userdata.tags)) else settings.privatetags
         
-        console.log "key:", key
-                
+        console.log "key:", key                
         env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) ->
             if post
                 posts.push post.output(tags_yes)
@@ -323,12 +322,20 @@ initRoutes = (callback) ->
                     
                 helpers.countExtend tagdata, posttags
             else
-                if outputType is 'tagcloud' then tagdata = helpers.scaleDict(tagdata)
-                if outputType is 'rss' then return serveRss(posts,res)
-                if outputType is 'txt' then return serveTxt(posts,res)
-                console.log "rendering #{ outputType }"
-                res.render outputType, key: key, posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, title: outputType, currenturl: "", selected: outputType, tags: tagdata
-                
+                serveposts posts, outputType, res, { tags: tagdata, key: key }
+
+
+
+    serveposts = (posts,outputType,res,extraopts={}) ->
+        if outputType is 'tagcloud' then tagdata = helpers.scaleDict(tagdata)
+        if outputType is 'rss' then return serveRss(posts,res)
+        if outputType is 'txt' then return serveTxt(posts,res)
+        if not outputType then outputType = 'blog'
+        console.log "rendering #{ outputType }"
+        res.render outputType, _.extend({ posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, title: outputType, currenturl: "", selected: outputType, tags: {}, key: 'public' }, extraopts)
+
+
+                                        
     env.app.get '/:key?/blog/:type?', (req,res) ->
         if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'blog'
         servetags ['blog'],[], req.params.key, outputType, res
@@ -350,10 +357,9 @@ initRoutes = (callback) ->
         
         env.wiki.getPosts { file: req.params[0] }, (post) ->
             if post then posts.push post.output() else
-                if posts.length then serveposts posts, res else res.end('404')        
+                if posts.length then serveposts(posts,'blog',res,{selected: ''}) else res.end('post not found')
                             
                                                             
-
 initRss = (callback) ->
     callback()
     
