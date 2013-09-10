@@ -201,6 +201,9 @@
         }
         return _.map(files, function(file) {
           var stat;
+          if (!_this.checkIgnores(file)) {
+            return;
+          }
           file = path.normalize(dir + "/" + file);
           stat = fs.statSync(file);
           if (stat.isDirectory()) {
@@ -212,19 +215,19 @@
         });
       });
     },
+    checkIgnores: function(f) {
+      if (f.indexOf('.git') !== -1) {
+        return false;
+      } else {
+        return true;
+      }
+    },
     watchDir: function(dir) {
-      var checkIgnores, watcher,
+      var watcher,
         _this = this;
       watcher = hound.watch(dir);
-      checkIgnores = function(f) {
-        if (f.indexOf('.git') !== -1) {
-          return false;
-        } else {
-          return true;
-        }
-      };
       watcher.on("create", function(f, stat) {
-        if (!checkIgnores(f)) {
+        if (!_this.checkIgnores(f)) {
           return;
         }
         if (stat.isFile()) {
@@ -239,7 +242,7 @@
         }
       });
       watcher.on("change", function(f, stat) {
-        if (!checkIgnores(f)) {
+        if (!_this.checkIgnores(f)) {
           return;
         }
         env.log('file changed ' + f, {
@@ -248,7 +251,7 @@
         return setTimeout(_this.fileChanged(f), 500);
       });
       return watcher.on("delete", function(f, stat) {
-        if (!checkIgnores(f)) {
+        if (!_this.checkIgnores(f)) {
           return;
         }
         env.log('deleted file ' + f, {
