@@ -334,7 +334,6 @@ initRoutes = (callback) ->
         console.log "rendering #{ outputType }"
         res.render outputType, _.extend({ posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, title: outputType, currenturl: "", selected: outputType, tags: {}, key: 'public' }, extraopts)
 
-
                                         
     env.app.get '/:key?/blog/:type?', (req,res) ->
         if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'blog'
@@ -349,7 +348,6 @@ initRoutes = (callback) ->
         [ tags_yes, tags_no ] = parseTagsString req.params.tags
         servetags tags_yes, tags_no, req.params.key, outputType, res
 
-
     env.app.get ':key?/article/*', (req,res) ->        
         serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
         posts = []
@@ -357,7 +355,7 @@ initRoutes = (callback) ->
         
         env.wiki.getPosts { file: req.params[0] }, (post) ->
             if post then posts.push post.output() else
-                if posts.length then serveposts(posts,'blog',res,{selected: ''}) else res.end('post not found')
+                if posts.length then serveposts(posts,'blog',res, { selected: '', title: posts[0].title }) else res.end('post not found')
                             
                                                             
 initRss = (callback) ->

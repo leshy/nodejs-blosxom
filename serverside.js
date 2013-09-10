@@ -636,7 +636,8 @@
         } else {
           if (posts.length) {
             return serveposts(posts, 'blog', res, {
-              selected: ''
+              selected: '',
+              title: posts[0].title
             });
           } else {
             return res.end('post not found');
