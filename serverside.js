@@ -213,10 +213,20 @@
       });
     },
     watchDir: function(dir) {
-      var watcher,
+      var checkIgnores, watcher,
         _this = this;
       watcher = hound.watch(dir);
+      checkIgnores = function(f) {
+        if (f.indexOf('.git') !== -1) {
+          return false;
+        } else {
+          return true;
+        }
+      };
       watcher.on("create", function(f, stat) {
+        if (!checkIgnores(f)) {
+          return;
+        }
         if (stat.isFile()) {
           env.log('created file ' + f, {
             file: f
@@ -229,12 +239,18 @@
         }
       });
       watcher.on("change", function(f, stat) {
+        if (!checkIgnores(f)) {
+          return;
+        }
         env.log('file changed ' + f, {
           file: f
         }, 'info', 'fs', 'file', 'change');
         return setTimeout(_this.fileChanged(f), 500);
       });
       return watcher.on("delete", function(f, stat) {
+        if (!checkIgnores(f)) {
+          return;
+        }
         env.log('deleted file ' + f, {
           file: f
         }, 'info', 'fs', 'file', 'delete');
