@@ -1,26 +1,25 @@
 <div class='mainheader'>
 
-<% LocalLinks = [ 'blog', 'projects', 'tagcloud' ] %>
+<% LocalLinks = { 'blog': 'blog/', 'projects': 'tagcloud/project+intro', 'miniprojects': 'tagcloud/miniproject', 'tagcloud': 'tagcloud/' } %>
 
 
 <a href="/"> <span class="header local blacklink"> / </span> </a>
 
 <%
-for(var i=0; i<LocalLinks.length; i++) {
-if ( selected == LocalLinks[i]) 
+for(var title in LocalLinks) {
+if ( selected == title) 
 { classes = 'header local blacklink selected' } 
 else
 { classes = 'header local blacklink' }
 %>
 
-
 <% if (key == 'public') { %>
-<a href="/<%= LocalLinks[i] %>/">
+<a href="/<%= LocalLinks[title] %>">
 <% } else { %>
-<a href="/<%= key %>/<%= LocalLinks[i] %>/">
+<a href="/<%= key %>/<%= LocalLinks[title] %>">
 <% } %>
   <span class="<%= classes %>">
-    <%= LocalLinks[i] %>
+    <%= title %>
   </span>
 </a>
 

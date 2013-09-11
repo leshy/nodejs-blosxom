@@ -519,7 +519,7 @@
       res.header('Content-Type', 'application/xhtml+xml');
       return res.end(xml(root));
     };
-    servetags = function(tags_yes, tags_no, key, outputType, res) {
+    servetags = function(tags_yes, tags_no, key, outputType, res, req) {
       var posts, tagdata, userdata;
       if (tags_yes == null) {
         tags_yes = {};
@@ -541,7 +541,7 @@
       _.extend(tags_no, (userdata = settings.users[key]) ? _.omit(settings.privatetags, _.keys(userdata.tags)) : settings.privatetags);
       console.log("key:", key);
       return env.wiki.getPostsByTags({}, tags_yes, tags_no, function(post) {
-        var posttags;
+        var extraopts, posttags;
         if (post) {
           posts.push(post.output(tags_yes));
           if (outputType === 'tagcloud') {
@@ -553,12 +553,21 @@
           return helpers.countExtend(tagdata, posttags);
         } else {
           if (outputType === 'tagcloud') {
+            tagdata = _.omit(tagdata, _.keys(tags_yes));
             tagdata = helpers.scaleDict(tagdata);
           }
-          return serveposts(posts, outputType, res, {
+          extraopts = {
             tags: tagdata,
-            key: key
-          });
+            key: key,
+            currenturl: req.url
+          };
+          if (tags_yes.project && tags_yes.intro) {
+            extraopts.selected = 'projects';
+          }
+          if (tags_yes.miniproject) {
+            extraopts.selected = 'miniprojects';
+          }
+          return serveposts(posts, outputType, res, extraopts);
         }
       });
     };
@@ -595,7 +604,7 @@
       } else {
         outputType = 'blog';
       }
-      return servetags(['blog'], [], req.params.key, outputType, res);
+      return servetags(['blog'], [], req.params.key, outputType, res, req);
     });
     env.app.get('/:key?/projects', function(req, res) {
       var outputType;
@@ -604,7 +613,7 @@
       } else {
         outputType = 'projects';
       }
-      return servetags(['project', 'intro'], [], req.params.key, outputType, res);
+      return servetags(['project', 'intro'], [], req.params.key, outputType, res, req);
     });
     env.app.get('/:key?/tagcloud/:tags?/:type?', function(req, res) {
       var outputType, tags_no, tags_yes, _ref;
@@ -614,7 +623,7 @@
         outputType = 'tagcloud';
       }
       _ref = parseTagsString(req.params.tags), tags_yes = _ref[0], tags_no = _ref[1];
-      return servetags(tags_yes, tags_no, req.params.key, outputType, res);
+      return servetags(tags_yes, tags_no, req.params.key, outputType, res, req);
     });
     return env.app.get(':key?/article/*', function(req, res) {
       var posts, serve;

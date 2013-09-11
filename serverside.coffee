@@ -306,7 +306,7 @@ initRoutes = (callback) ->
             
 
 
-    servetags = (tags_yes={}, tags_no={}, key="public", outputType, res) -> 
+    servetags = (tags_yes={}, tags_no={}, key="public", outputType, res, req) -> 
         posts = []
         tagdata = {}
 
@@ -325,9 +325,14 @@ initRoutes = (callback) ->
                     
                 helpers.countExtend tagdata, posttags
             else
-                if outputType is 'tagcloud' then tagdata = helpers.scaleDict(tagdata)
-                serveposts posts, outputType, res, { tags: tagdata, key: key }
-
+                if outputType is 'tagcloud'
+                    tagdata = _.omit tagdata, _.keys tags_yes
+                    tagdata = helpers.scaleDict(tagdata)
+                    
+                extraopts = tags: tagdata, key: key, currenturl: req.url
+                if tags_yes.project and tags_yes.intro then extraopts.selected = 'projects'
+                if tags_yes.miniproject  then extraopts.selected = 'miniprojects'
+                serveposts posts, outputType, res, extraopts
 
 
     serveposts = (posts,outputType,res,extraopts={}) ->
@@ -340,16 +345,16 @@ initRoutes = (callback) ->
                                         
     env.app.get '/:key?/blog/:type?', (req,res) ->
         if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'blog'
-        servetags ['blog'],[], req.params.key, outputType, res
+        servetags ['blog'],[], req.params.key, outputType, res, req
 
     env.app.get '/:key?/projects', (req,res) ->
         if req.params.type is 'rss' then outputType = 'rss' else outputType = 'projects'
-        servetags ['project','intro'],[], req.params.key, outputType, res
+        servetags ['project','intro'],[], req.params.key, outputType, res, req
 
     env.app.get '/:key?/tagcloud/:tags?/:type?', (req,res) ->
         if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'tagcloud'        
         [ tags_yes, tags_no ] = parseTagsString req.params.tags
-        servetags tags_yes, tags_no, req.params.key, outputType, res
+        servetags tags_yes, tags_no, req.params.key, outputType, res, req
 
     env.app.get ':key?/article/*', (req,res) ->        
         serve = (posts) -> res.render 'blog', { title: 'blog', posts: posts, helpers: helpers }    
