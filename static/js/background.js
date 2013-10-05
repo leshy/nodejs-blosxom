@@ -19,14 +19,22 @@ function RandomBool() { return Boolean(RandomInt(1)) }
 function RandomSign() { return  (RandomBool()) ? 1 : -1 }
 function RandomWalk(x,diff) { return x + (RandomSign() * RandomInt(diff))  }
 function RandomWalkFloat(x,diff) { return x + (RandomSign() * RandomFloat(diff))  }
+function RandomGauss() { return Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * pi * Math.random()) }
+
+function RandomWalkFloatGaussian(x,target,diff) { 
+    var distance = x - point
+    // need bell curve distribution
+
+ }
 
 var pi = 3.14159265
 
 var Object = Backbone.Model.extend({
-    defaults: { direction: undefined, x: undefined, y: undefined, size: undefined },
+    defaults: { direction: undefined, x: undefined, y: undefined, size: undefined, speed: 1 },
     initialize: function() {
         if (!this.get('direction')) { this.set({direction: RandomFloat(2 * pi) }) }
         if (!this.get('size')) { this.set({size: 3 + RandomFloat(7) }) }
+        //if (!this.get('speed')) { this.set({speed: 0.3 + RandomFloat(1.7) }) }
     },
 
     move: function(angle,distance) {
@@ -35,7 +43,7 @@ var Object = Backbone.Model.extend({
         var a = c * Math.sin(angle) 
         var b = c * Math.cos(angle)
         this.set({x : this.get('x') + b, y : this.get('y') + a})
-        this.set({size: this.get('size') - 0.01})
+        this.set({size: this.get('size') - RandomFloat(0.02)})
         return true
     },
     
@@ -44,17 +52,20 @@ var Object = Backbone.Model.extend({
     },
 
     tick: function() {
-        this.set({direction: RandomWalkFloat(this.get('direction'),(2 * pi) / 50)})
-        return this.move(this.get('direction'),1)
+        //this.set({speed: RandomWalkFloat(this.get('speed'),0.2)})
+        this.set({speed: 0.5 + (1.0 / this.get('size')) })
+        this.set({direction: RandomWalkFloat(this.get('direction'),(2 * pi) / (50 / this.get('speed')))})
+
+        return this.move(this.get('direction'),this.get('speed'))
     },
 
     clone: function() {
         //this.set({size : this.get('size') / 1.3 } )
-        return new Object({ direction: this.get('direction'), x: this.get('x'), y: this.get('y'), size: this.get('size') })
+        return new Object({ direction: this.get('direction'), x: this.get('x'), y: this.get('y'), size: this.get('size'), speed: this.get('speed') })
     },
 
     draw: function(ctx) {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";  
+        ctx.fillStyle = "rgba(0, 0, 0, " + (0.2 * (this.get('speed') * 0.9 )) + ")";  
         ctx.beginPath();
         ctx.arc(this.get('x'), this.get('y'), this.get('size'), 0, Math.PI*2, true); 
         ctx.closePath();

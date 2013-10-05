@@ -41,6 +41,10 @@
 
   converter = new pagedown.Converter();
 
+  ejs.renderFileSync = function(file, options) {
+    return ejs.render(fs.readFileSync(file).toString(), options);
+  };
+
   env = {};
 
   rfc822 = require('./rfc822');
@@ -70,6 +74,25 @@
   ejs.filters.prettyDate = function(obj) {
     return helpers.prettyDate(obj);
   };
+
+  converter.hooks.chain("postConversion", function(text) {
+    return text.replace(/flickr\:\/\/farm(\d)\.staticflickr\.com\/(\d*)\/(\d*)_(.*)(_.)?\.jpg/g, function(flickr, farm, serverid, photoid, secret, size) {
+      console.log("" + farm + " " + serverid + " " + secret + " " + photoid + " " + size);
+      if (!size) {
+        size = "";
+      }
+      return "<div class='flickrimg'><a href='https://secure.flickr.com/photos/leshx/" + photoid + "/lightbox/'><img src='https://farm" + farm + ".staticflickr.com/" + serverid + "/" + photoid + "_" + secret + size + ".jpg'></img></a></div>";
+    });
+  });
+
+  converter.hooks.chain("postConversion", function(text) {
+    return text.replace(/flickrtag\:\/\/([a-zA-Z0-9-_]+)/g, function(text, tag) {
+      console.log("TAG GALLERY FOUND: " + tag);
+      return ejs.renderFileSync('views/special/flickrtag.ejs', {
+        tag: tag
+      });
+    });
+  });
 
   initLogger = function(env, callback) {
     env.log = function() {

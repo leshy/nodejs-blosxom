@@ -23,6 +23,9 @@ xml = require 'xml'
 pagedown = require 'pagedown'
 converter = new pagedown.Converter()
 
+ejs.renderFileSync = (file,options) -> ejs.render fs.readFileSync(file).toString(),options
+
+
 env = {}
 
 rfc822 = require './rfc822'
@@ -42,6 +45,20 @@ _.map settings.users, (userdata,key) -> console.log key, userdata; userdata.tags
 console.log "setings:", JSON.stringify(settings)
 
 ejs.filters.prettyDate = (obj) -> helpers.prettyDate(obj)
+
+
+converter.hooks.chain "postConversion", (text) ->
+    text.replace /flickr\:\/\/farm(\d)\.staticflickr\.com\/(\d*)\/(\d*)_(.*)(_.)?\.jpg/g, (flickr,farm,serverid,photoid,secret,size) ->
+        console.log "#{farm} #{serverid} #{secret} #{photoid} #{size}"
+        if not size then size = ""
+        "<div class='flickrimg'><a href='https://secure.flickr.com/photos/leshx/#{photoid}/lightbox/'><img src='https://farm#{farm}.staticflickr.com/#{serverid}/#{photoid}_#{secret}#{size}.jpg'></img></a></div>"
+
+converter.hooks.chain "postConversion", (text) ->
+    text.replace /flickrtag\:\/\/([a-zA-Z0-9-_]+)/g, (text,tag) ->
+        console.log "TAG GALLERY FOUND: " + tag
+        ejs.renderFileSync('views/special/flickrtag.ejs',{tag: tag})
+
+
 
 initLogger = (env,callback) ->    
     env.log = (text,data,taglist...) ->
