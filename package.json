@@ -11,7 +11,7 @@
     "backbone4000": "git://github.com/leshy/backbone4000.git",
     "helpers": "git://github.com/leshy/nodejs-helpers.git",
     "validator2-extras": "git://github.com/leshy/nodejs-validator2-extras.git",
-    "decorators": "git://github.com/leshy/nodejs-decorators.git",
+    "decorators2": "git://github.com/leshy/nodejs-decorators2.git",
     "collections": "git://github.com/leshy/collections.git",
     "hound": "git://github.com/leshy/node-hound.git",
     "rss": "0.0.4",

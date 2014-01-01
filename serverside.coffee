@@ -14,7 +14,7 @@ ejslocals = require 'ejs-locals'
 collections = require 'collections/serverside'
 helpers = require 'helpers'
 
-decorators = require 'decorators'
+decorators = require 'decorators2'
 decorate = decorators.decorate
 
 hound = require 'hound'
@@ -136,7 +136,8 @@ Wiki = Backbone.Model.extend4000
     initialize: ->
         @when 'dir', (dir) =>
             @watchDir dir
-            @crawlDir dir, (file) => @pingFile(file)
+            @crawlDir dir, (file) =>
+                @pingFile(file)
                 
     crawlDir: (dir,callback) ->
         fs.readdir dir, (err,files) =>
@@ -210,9 +211,12 @@ Wiki = Backbone.Model.extend4000
     pingFile: (file,callback) ->
         @getPost {file: file}, (err,post) =>
             if err then @fileChanged(file,callback); return
-            try
+            try                
                 stat = fs.statSync(file)
-                if post.get('modified') != stat.mtime.getTime() then @fileChanged(file,callback) else helpers.cbc callback
+                if post.get('modified') != stat.mtime.getTime()
+                    console.log post.get('modified'), stat.mtime.getTime()
+                    @fileChanged(file,callback)
+                else helpers.cbc callback
             catch error
                 console.log("can't read stat")
                 callback "can't read file stat"
@@ -222,7 +226,7 @@ Wiki = Backbone.Model.extend4000
         if not data then helpers.cbc callback, true; console.log "NO DATA"; return
         env.log('updating entry ' + file, { file: file }, 'info', 'wiki', 'file', 'change')
         @getPost { file: data.file }, (err,post) ->
-            if post then delete data['created']; post.set(data) else post = new env.blog.models.post(data)
+            if post then post.set(data) else post = new env.blog.models.post(data)
             post.flush helpers.cbc callback
     
     parseFile: (file) ->
@@ -232,7 +236,7 @@ Wiki = Backbone.Model.extend4000
             data = fs.readFileSync file, 'ascii'
         catch error
             return undefined
-
+        
         # find the first line of a file and execute it
         newline = data.indexOf('\n')
             
@@ -245,25 +249,25 @@ Wiki = Backbone.Model.extend4000
         catch error
             manualOptions = {}
 
-
         # generate basic options
         options =
             created: stat.ctime.getTime()
-            modified: stat.mtime.getTime()
             file: file
             link: file
             title: path.basename(file,path.extname(file)).replace(/_/g,' ')
             body: data
             tags: []
-
+        
         options = _.extend options, manualOptions
-
+        
         # write options JSON back to the file
         writeOptions = _.omit options, 'title', 'body', 'file', 'link', 'modified'
         writeOptions.created = new Date(writeOptions.created).toUTCString()
         data = data.substr data.indexOf('\n') + 1
-
         fs.writeFileSync file, JSON.stringify(writeOptions) + "\n\n" + data
+
+        stat = fs.statSync(file)
+        options.modified = stat.mtime.getTime()
         
         # apply path as tags
         pathtags = file.split('/')
@@ -276,8 +280,9 @@ Wiki = Backbone.Model.extend4000
             tags[tag] = true
             
         options.tags = tags
-        
         return options
+
+Wiki::fileChanged = decorate(decorators.makeNoHammer({waittime: 2000}), decorate(decorators.makeDelayExec({waittime: 1000}), Wiki::fileChanged))
 
 
 initRoutes = (callback) ->
@@ -367,7 +372,6 @@ initRoutes = (callback) ->
         console.log "rendering #{ outputType }"
         res.render outputType, _.extend({ posts: posts, helpers: helpers, _:_, title: 'lesh.sysphere.org ' + outputType, selected: outputType, currenturl: "", selected: outputType, tags: {}, key: 'public' }, extraopts)
 
-                                        
     env.app.get '/:key?/blog/:type?', (req,res) ->
         if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'blog'
         servetags ['blog'],[], req.params.key, outputType, res, req
@@ -390,14 +394,12 @@ initRoutes = (callback) ->
             if post then posts.push post.output() else
                 if posts.length then serveposts(posts,'blog',res, { selected: '', title: posts[0].title }) else res.end('post not found')
                             
-                                                            
 initRss = (callback) ->
     callback()
     
 initWiki = (callback) ->
     env.wiki = new Wiki {dir: settings.postsfolder}
     callback()
-
 
 init = (callback) ->
     async.auto        

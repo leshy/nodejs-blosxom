@@ -29,7 +29,7 @@
 
   helpers = require('helpers');
 
-  decorators = require('decorators');
+  decorators = require('decorators2');
 
   decorate = decorators.decorate;
 
@@ -380,6 +380,7 @@
         try {
           stat = fs.statSync(file);
           if (post.get('modified') !== stat.mtime.getTime()) {
+            console.log(post.get('modified'), stat.mtime.getTime());
             return _this.fileChanged(file, callback);
           } else {
             return helpers.cbc(callback);
@@ -405,7 +406,6 @@
         file: data.file
       }, function(err, post) {
         if (post) {
-          delete data['created'];
           post.set(data);
         } else {
           post = new env.blog.models.post(data);
@@ -437,7 +437,6 @@
       }
       options = {
         created: stat.ctime.getTime(),
-        modified: stat.mtime.getTime(),
         file: file,
         link: file,
         title: path.basename(file, path.extname(file)).replace(/_/g, ' '),
@@ -449,6 +448,8 @@
       writeOptions.created = new Date(writeOptions.created).toUTCString();
       data = data.substr(data.indexOf('\n') + 1);
       fs.writeFileSync(file, JSON.stringify(writeOptions) + "\n\n" + data);
+      stat = fs.statSync(file);
+      options.modified = stat.mtime.getTime();
       pathtags = file.split('/');
       pathtags.pop();
       pathtags.shift();
@@ -460,6 +461,12 @@
       return options;
     }
   });
+
+  Wiki.prototype.fileChanged = decorate(decorators.makeNoHammer({
+    waittime: 2000
+  }), decorate(decorators.makeDelayExec({
+    waittime: 1000
+  }), Wiki.prototype.fileChanged));
 
   initRoutes = function(callback) {
     var parseTagsString, serveRss, serveposts, servetags;
