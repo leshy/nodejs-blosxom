@@ -234,13 +234,17 @@ Wiki = Backbone.Model.extend4000
             return undefined
 
         # find the first line of a file and execute it
-        match = data.match(/^(.*)\n/)
-        if match then match = match[1] else return { data: data, extraopts: {} }
+        newline = data.indexOf('\n')
+            
         try
+            match = data.substr(0,newline)
             manualOptions = eval("x=" + match)
             data = data.replace(/^.*\n/,'')
+            if manualOptions.created then manualOptions.created = new Date(manualOptions.created).getTime()
+            if manualOptions.modified then manualOptions.modified = new Date(manualOptions.modified).getTime()
         catch error
-            manualOptions = {}  
+            manualOptions = {}
+
 
         # generate basic options
         options =
@@ -255,8 +259,12 @@ Wiki = Backbone.Model.extend4000
         options = _.extend options, manualOptions
 
         # write options JSON back to the file
-        # sooo boring... I'll do this later
+        writeOptions = _.omit options, 'title', 'body', 'file', 'link', 'modified'
+        writeOptions.created = new Date(writeOptions.created).toUTCString()
+        data = data.substr data.indexOf('\n') + 1
 
+        fs.writeFileSync file, JSON.stringify(writeOptions) + "\n\n" + data
+        
         # apply path as tags
         pathtags = file.split('/')
         pathtags.pop()

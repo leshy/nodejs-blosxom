@@ -414,25 +414,24 @@
       });
     },
     parseFile: function(file) {
-      var data, manualOptions, match, options, pathtags, stat, tags;
+      var data, manualOptions, match, newline, options, pathtags, stat, tags, writeOptions;
       try {
         stat = fs.statSync(file);
         data = fs.readFileSync(file, 'ascii');
       } catch (error) {
         return void 0;
       }
-      match = data.match(/^(.*)\n/);
-      if (match) {
-        match = match[1];
-      } else {
-        return {
-          data: data,
-          extraopts: {}
-        };
-      }
+      newline = data.indexOf('\n');
       try {
+        match = data.substr(0, newline);
         manualOptions = eval("x=" + match);
         data = data.replace(/^.*\n/, '');
+        if (manualOptions.created) {
+          manualOptions.created = new Date(manualOptions.created).getTime();
+        }
+        if (manualOptions.modified) {
+          manualOptions.modified = new Date(manualOptions.modified).getTime();
+        }
       } catch (error) {
         manualOptions = {};
       }
@@ -446,6 +445,10 @@
         tags: []
       };
       options = _.extend(options, manualOptions);
+      writeOptions = _.omit(options, 'title', 'body', 'file', 'link', 'modified');
+      writeOptions.created = new Date(writeOptions.created).toUTCString();
+      data = data.substr(data.indexOf('\n') + 1);
+      fs.writeFileSync(file, JSON.stringify(writeOptions) + "\n\n" + data);
       pathtags = file.split('/');
       pathtags.pop();
       pathtags.shift();

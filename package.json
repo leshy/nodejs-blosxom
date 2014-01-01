@@ -13,7 +13,7 @@
     "validator2-extras": "git://github.com/leshy/nodejs-validator2-extras.git",
     "decorators": "git://github.com/leshy/nodejs-decorators.git",
     "collections": "git://github.com/leshy/collections.git",
-    "hound": "~1.0.4",
+    "hound": "git://github.com/leshy/node-hound.git",
     "rss": "0.0.4",
     "xml": "0.0.7",
     "pagedown": "~1.1.0",
