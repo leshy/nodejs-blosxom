@@ -259,3 +259,8 @@ ul {
 .code {
   font-family: Consolas, "Andale Mono WT", "Andale Mono", "Bitstream Vera Sans Mono", "Nimbus Mono L", Monaco, "Courier New", monospace;
 }
+blockquote {
+  border-left: 1px solid black;
+  padding-left: 10px;
+  margin-left: 10px;
+}
