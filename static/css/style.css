@@ -127,9 +127,17 @@ ul {
 .box h3 {
   font-size: 1em;
 }
-.flickrimg {
-  margin-top: 15px;
-  margin-bottom: 15px;
+.img {
+  width: 97%;
+  margin: 10px;
+}
+p img {
+  width: 97%;
+  margin: 10px;
+}
+.flickrimg img {
+  width: 97%;
+  margin: 10px;
 }
 .minibiggie {
   font-size: 1.3em;
