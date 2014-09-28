@@ -1,1 +1,0 @@
-/home/lesh/coding/node/blog/bundle.js

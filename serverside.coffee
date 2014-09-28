@@ -32,7 +32,7 @@ rfc822 = require './rfc822'
 
 settings =
     postsfolder: "posts"
-    privatetags: [ "secret_tag", "secret_tag2" ]
+    privatetags: [ "unpublished", "secret_tag", "secret_tag2" ]
     users:
         some_key: { user: 'username', tags: [ "secret_tag" ] }
 
