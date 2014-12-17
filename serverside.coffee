@@ -13,18 +13,15 @@ ejslocals = require 'ejs-locals'
 
 collections = require 'collections/serverside'
 helpers = require 'helpers'
-
 decorators = require 'decorators2'
 decorate = decorators.decorate
 
 hound = require 'hound'
 xml = require 'xml'
-
 pagedown = require 'pagedown'
 converter = new pagedown.Converter()
 
 ejs.renderFileSync = (file,options) -> ejs.render fs.readFileSync(file).toString(),options
-
 
 env = {}
 
@@ -66,7 +63,7 @@ initLogger = (env,callback) ->
         _.map taglist, (tag) -> tags[tag] = true
         if tags.error then text = text.red
         if tags.error and _.keys(data).length then json = " " + JSON.stringify(tags.error) else json = ""
-        console.log String(new Date()).yellow + " " + _.keys(tags).join(', ').green + " " + text + json
+        console.log String(new Date()) + " " + _.keys(tags).join(', ') + " " + text + json
 
     env.logres = (name, callback) ->
         (err,data) -> 
@@ -113,6 +110,7 @@ initExpress = (callback) ->
         app.use express.static(__dirname + '/static')
         app.use (err, req, res, next) ->
             env.log 'web request error', { stack: err.stack }, 'error', 'http'
+            console.log err.stack
             res.send 500, 'BOOOM!'
 
         env.server = http.createServer env.app
@@ -180,15 +178,16 @@ Wiki = Backbone.Model.extend4000
 
     getPost: (search, callback) ->
         found = false
-        env.blog.findModels search, {}, (post) ->
+        env.blog.findModel search, (err,post) ->
             if post
                 if not found then found = true; callback undefined, post else return;
             else
                 if not found then callback "not found"
 
-    getPosts: (search,callback) -> env.blog.findModels search, {sort: {created: -1}}, callback
+    getPosts: (search,callback,callbackDone) ->
+        env.blog.findModels search, {sort: {created: -1}}, callback, callbackDone
 
-    getPostsByTags: (search = {}, tags_yes=[], tags_no=[], callback) ->
+    getPostsByTags: (search = {}, tags_yes=[], tags_no=[], callback, callbackDone) ->
         query = {}
 
         if tags_yes.constructor isnt Array then tags_yes = _.keys(tags_yes)
@@ -206,7 +205,7 @@ Wiki = Backbone.Model.extend4000
 
         #console.log "query is:", JSON.stringify(query)
         
-        env.blog.findModels _.extend( search, query ), {sort: {created: -1}}, callback
+        env.blog.findModels _.extend( search, query ), {sort: {created: -1}}, callback, callbackDone
         
     pingFile: (file,callback) ->
         @getPost {file: file}, (err,post) =>
@@ -295,8 +294,8 @@ initRoutes = (callback) ->
         tags = "+" + tags
         tags = tags.replace('+', ' +')
         tags = tags.replace('-', ' -')
-        tags_yes = helpers.mapToDict tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
-        tags_no = helpers.mapToDict tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
+        tags_yes = helpers.makeDict tags.match(/(?:\+)(\w*)\w/g), (tag) -> tag.replace '+', ''
+        tags_no = helpers.makeDict tags.match(/\-(\w*)\w/g), (tag) -> tag.replace '-', ''
         
         [ tags_yes, tags_no ]
 
@@ -345,16 +344,18 @@ initRoutes = (callback) ->
         if tags_no.constructor isnt Object then tags_no = helpers.arrayToDict(tags_no)
         _.extend tags_no, if userdata = settings.users[key] then _.omit(settings.privatetags,_.keys(userdata.tags)) else settings.privatetags
         
-        console.log "key:", key                
-        env.wiki.getPostsByTags {}, tags_yes, tags_no, (post) ->
+        #console.log "key:", key                
+        env.wiki.getPostsByTags {}, tags_yes, tags_no, ((err,post) ->
             if post
+                console.log post.get('title')
                 posts.push post.output(tags_yes)
                 if outputType is 'tagcloud'
                     posttags = post.get('tags')
                     _.map tags_yes, (tag) -> delete posttags[tag]
                     
                 helpers.countExtend tagdata, posttags
-            else
+            ), (->
+                console.log "DONE, SENDING"
                 if outputType is 'tagcloud'
                     tagdata = _.omit tagdata, _.keys tags_yes
                     tagdata = helpers.scaleDict(tagdata)
@@ -362,7 +363,7 @@ initRoutes = (callback) ->
                 extraopts = tags: tagdata, key: key, currenturl: req.url
                 if tags_yes.project and tags_yes.intro then extraopts.selected = 'projects'
                 if tags_yes.miniproject  then extraopts.selected = 'miniprojects'
-                serveposts posts, outputType, res, extraopts
+                serveposts posts, outputType, res, extraopts)
 
 
     serveposts = (posts,outputType,res,extraopts={}) ->
@@ -383,6 +384,7 @@ initRoutes = (callback) ->
     env.app.get '/:key?/tagcloud/:tags?/:type?', (req,res) ->
         if req.params.type is 'rss.xml' then outputType = 'rss' else outputType = 'tagcloud'        
         [ tags_yes, tags_no ] = parseTagsString req.params.tags
+        console.log 'parse done:', tags_yes, tags_no
         servetags tags_yes, tags_no, req.params.key, outputType, res, req
 
     env.app.get ':key?/article/*', (req,res) ->        
@@ -390,9 +392,7 @@ initRoutes = (callback) ->
         posts = []
         console.log('looking for', { file: req.params[0] })
         
-        env.wiki.getPosts { file: req.params[0] }, (post) ->
-            if post then posts.push post.output() else
-                if posts.length then serveposts(posts,'blog',res, { selected: '', title: posts[0].title }) else res.end('post not found')
+        env.wiki.getPosts { file: req.params[0] }, ((err,post) -> posts.push post.output()), -> if posts.length then serveposts(posts,'blog',res, { selected: '', title: posts[0].title }) else res.end('post not found')
                             
 initRss = (callback) ->
     callback()

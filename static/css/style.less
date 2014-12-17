@@ -1,8 +1,9 @@
+@import "bootstrap-3.3.1/less/bootstrap.less";
+@import "bootstrap-3.3.1/less/responsive-utilities.less";
 
 body {
     color:#000000;
-    font-family: 'Trebuchet MS', 'Tahoma', 'Arial', 'Helvetica';
-    font-size: 0.9em;
+    font-family: 'monospace';
     background: url('/img/grid.png'); 
     background-repeat: repeat; 
     margin: 0px;
@@ -23,15 +24,7 @@ body {
 
 a {
     color:#444488;
-    text-decoration: underline;
 }
-
-a:hover {
-    background-color: black;
-    color: white;
-    text-decoration: none;
-}
-
 
 .maindiv {
     border:1px solid;
@@ -76,37 +69,55 @@ a:hover {
     margin-top: 10px;
 }
 
-.header.local {
-    font-size: 2em;
-    margin-right: 20px;
-    padding: 5px;
-}
 
-.local.a {
-    color: 'black';
-}
+.mainheader {
+    .mainLinks {
 
-.header.external {
-    font-size: 1.5em;
-    margin-right: 20px;
-    padding: 5px;
-}
+        .selected {
+            color: white !important;
+            background: black;
+        }
 
-.blacklink {
-    cursor: pointer;
-    color: black;
-    text-decoration: none;
-}
 
-.blacklink:hover {
-    color: white;
-    background: black;
-    text-decoration: none;
-}
+        a {
+            color: black;
+            margin-left: 10px;
+            margin-right: 10px;
+            font-size: 2em;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            padding-left: 10px;
+            padding-right: 10px;
+        
+        }
+        
+        a:hover {
+            color: white;
+            background: black;
+        }
+    }
+    
+    .smallLinks {
 
-.selected {
-    color: white;
-    background: black;
+        a {
+            color:#444488;
+            text-decoration: underline;
+            margin-left: 10px;
+            margin-right: 10px;
+            font-size: 1.5em;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            padding-left: 10px;
+            padding-right: 10px;        
+        }
+        
+        a:hover {
+            color: white;
+            background: black;
+        }
+
+        
+    }
 }
 
 ul {
@@ -115,15 +126,21 @@ ul {
 
 .box {
     margin-top: 50px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 840px;
+    margin-left: 10px;
+    margin-right: 10px;
+//    width: 840px;
 
     .body {
         margin: 0px;
         padding: 20px;
         background: white;
         border:1px solid;
+        a { 
+            text-decoration: underline; 
+        }
+        a:hover { 
+            text-decoration: none; 
+        }
     }
 
     .header {
@@ -139,6 +156,14 @@ ul {
         font-weight: normal;
         z-index: 1;
         color: black;
+        
+        a {
+            color: black;
+            text-decoration: none;
+        }
+        a:hover {
+            color: white;
+        }
     }
     
     .minititle {
@@ -193,13 +218,28 @@ p {
     height: 700px;
 }
 
+
+a:hover {
+    color: white;
+    background-color: black;
+    text-decoration: none;
+}
+
+blockquote {
+    font-size: 1.1em;
+}
+
 .blogpost {
     .box;
     .date {
         position: relative;
-        bottom: -10px;
-        right: 10px;
+        bottom: 1px;
+        right: 0px;
         float:right;
+        padding-left: 5px;
+        padding-right: 5px;
+        border:1px solid;
+        background: white;
     }
 
     .date .full {
@@ -244,6 +284,9 @@ p {
 }
 
 .tagcloud {
+    a { color: black }
+    a:hover { color: white }
+    font-size: 1.5em;
     .box;
     .body { font-size: 3em }
 }

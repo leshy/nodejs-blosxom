@@ -13,25 +13,24 @@ else
 { classes = 'header local blacklink' }
 %>
 
-<% if (key == 'public') { %>
-<a href="/<%= LocalLinks[title] %>">
-<% } else { %>
-<a href="/<%= key %>/<%= LocalLinks[title] %>">
-<% } %>
-  <span class="<%= classes %>">
-    <%= title %>
-  </span>
-</a>
+<span class="mainLinks">
+  <% if (key == 'public') { %>
+  <a class="<%= classes %>" href="/<%= LocalLinks[title] %>">
+  <% } else { %>
+  <a class="<%= classes %>" href="/<%= key %>/<%= LocalLinks[title] %>">
+  <% } %>
+  <%= title %></a>
+  <% } %>
+</span>
 
-<% } %>
+<span class="gimmespace">&nbsp;</span>
 
-<span class='gimmespace'>&nbsp;</span>
-
+<span class="smallLinks">
 <a href="/article/posts/random/about.md"><span class='header external'>about</span></a>
 <a href="/"><span class='header external'>contact</span></a>
 <a href="https://github.com/leshy" target="_"><span class='header external'>github</span></a>
 <a href="https://secure.flickr.com/photos/leshx/" target="_"><span class='header external'>flickr</span></a>
-
+</span>
 
 </div>
 

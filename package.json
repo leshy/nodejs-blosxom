@@ -14,6 +14,7 @@
     "decorators2": "git://github.com/leshy/nodejs-decorators2.git",
     "collections": "git://github.com/leshy/collections.git",
     "hound": "git://github.com/leshy/node-hound.git",
+    "subscriptionman2": "git://github.com/leshy/nodejs-subscriptionman2",
     "rss": "0.0.4",
     "xml": "0.0.7",
     "pagedown": "~1.1.0",
