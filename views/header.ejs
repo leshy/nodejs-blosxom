@@ -3,8 +3,9 @@
 <% LocalLinks = { 'blog': 'blog/', 'projects': 'tagcloud/project+intro', 'miniprojects': 'tagcloud/miniproject', 'tagcloud': 'tagcloud/' } %>
 
 
-<a href="/"> <span class="header local blacklink"> / </span> </a>
+<span class="mainLinks">
 
+<span class="header local blacklink"> <a href="/">/</a> </span> 
 <%
 for(var title in LocalLinks) {
 if ( selected == title) 
@@ -13,7 +14,6 @@ else
 { classes = 'header local blacklink' }
 %>
 
-<span class="mainLinks">
   <% if (key == 'public') { %>
   <a class="<%= classes %>" href="/<%= LocalLinks[title] %>">
   <% } else { %>
@@ -30,6 +30,7 @@ else
 <a href="/"><span class='header external'>contact</span></a>
 <a href="https://github.com/leshy" target="_"><span class='header external'>github</span></a>
 <a href="https://secure.flickr.com/photos/leshx/" target="_"><span class='header external'>flickr</span></a>
+<a href="/loc/"><span class='header external'>where am I?</span></a>
 </span>
 
 </div>
